@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<style>
+  body { font-family: sans-serif; padding: 12px; background: #f5f5f5; color: #333; font-size: 12px; margin: 0; }
+  .title { font-size: 14px; font-weight: 700; margin: 8px 0 4px; }
+  .top-row { display: flex; gap: 10px; flex-wrap: wrap; }
+  .panel { flex: 1; min-width: 180px; }
+  .sec-title { font-size: 10px; font-weight: 600; margin-bottom: 3px; padding: 2px 6px; border-radius: 4px; display: inline-block; }
+
+  .grid { display: grid; gap: 2px; margin: 4px 0; }
+  .cell { width: 38px; height: 34px; display: flex; flex-direction: column; align-items: center; justify-content: center; font-size: 11px; font-weight: 700; border-radius: 3px; border: 1.5px solid #ccc; transition: all 0.25s; }
+  .lbl { background: none !important; border: none !important; color: #888; font-size: 9px; font-weight: 400; }
+
+  /* Matrix */
+  .m-one  { background: #D5F5E3; color: #1e8449; }
+  .m-zero { background: #FADBD8; color: #922b21; }
+  .m-cur  { background: #e74c3c; color: white; border: 2px solid #922b21 !important; }
+  .m-done { background: #AED6F1; color: #1a5276; }
+  .m-sq-border { background: #F39C12; color: white; border: 2px solid #ca6f1e !important; }
+  .m-sq-inside { background: #FDEBD0; color: #784212; border: 1px dashed #F39C12 !important; }
+
+  /* Left */
+  .l-base { background: #f0f0f0; color: #aaa; font-size: 9px; }
+  .l-val  { background: #2980b9; color: white; }
+  .l-zero { background: #FADBD8; color: #922b21; }
+  .l-cur  { background: #F39C12; color: white; border: 2px solid #ca6f1e !important; }
+  .l-check { background: #1a5276; color: white; border: 2px solid #0d2b40 !important; }
+
+  /* Up */
+  .u-base { background: #f0f0f0; color: #aaa; font-size: 9px; }
+  .u-val  { background: #8e44ad; color: white; }
+  .u-zero { background: #FADBD8; color: #922b21; }
+  .u-cur  { background: #27ae60; color: white; border: 2px solid #1e8449 !important; }
+  .u-check { background: #4a235a; color: white; border: 2px solid #2c1338 !important; }
+
+  .btn-row { display: flex; gap: 6px; margin: 8px 0; flex-wrap: wrap; }
+  button { padding: 6px 14px; border: none; border-radius: 6px; cursor: pointer; font-size: 12px; font-weight: 600; }
+  .btn-next  { background: #2980b9; color: white; }
+  .btn-auto  { background: #27ae60; color: white; }
+  .btn-auto.playing { background: #e74c3c; }
+  .btn-reset { background: #95a5a6; color: white; }
+
+  .info { background: white; border-radius: 8px; padding: 8px 12px; margin: 6px 0; font-size: 11px; line-height: 1.8; min-height: 80px; border-left: 4px solid #2980b9; }
+  .result-box { background: #e74c3c; color: white; border-radius: 6px; padding: 6px 14px; font-size: 14px; font-weight: 700; display: inline-block; margin: 4px 0; }
+  .step-ctr { font-size: 11px; color: #888; margin: 2px 0; }
+</style>
+</head>
+<body>
+
+<div class="title">🎮 填表 + 检查答案 同步动画</div>
+<div class="btn-row">
+  <button class="btn-next" onclick="nextStep()">▶ 下一步</button>
+  <button class="btn-auto" id="autoBtn" onclick="toggleAuto()">⚡ 自动</button>
+  <button class="btn-reset" onclick="reset()">↺ 重置</button>
+  <span style="margin-left:8px;font-size:12px;color:#555">当前最大正方形：<span class="result-box" id="resultBox">0</span></span>
+</div>
+<div class="step-ctr" id="stepCtr">步骤 0 / 36</div>
+<div class="info" id="info">点击"下一步"开始！红色=当前格子，橙色=left更新，绿色=up更新，深色=检查的角</div>
+
+<div class="top-row">
+  <div class="panel">
+    <div class="sec-title" style="background:#D5F5E3;color:#1e8449">原始矩阵 matrix</div>
+    <div class="grid" id="matGrid" style="grid-template-columns:repeat(7,38px)"></div>
+  </div>
+  <div class="panel">
+    <div class="sec-title" style="background:#2980b9;color:white">left[i+1][j+1] 往左</div>
+    <div class="grid" id="leftGrid" style="grid-template-columns:repeat(8,38px)"></div>
+  </div>
+  <div class="panel">
+    <div class="sec-title" style="background:#8e44ad;color:white">up[i+1][j+1] 往上</div>
+    <div class="grid" id="upGrid" style="grid-template-columns:repeat(8,38px)"></div>
+  </div>
+</div>
+
+<script>
+const M = 6, N = 6;
+const matrix = [
+  [1,1,1,1,1,1],
+  [1,1,1,1,1,1],
+  [1,1,0,0,1,1],
+  [1,1,0,0,1,1],
+  [1,1,1,1,1,1],
+  [1,1,1,1,1,1],
+];
+
+let left, up, stepIndex, result, autoTimer;
+
+function init() {
+  left = Array.from({length:M+1}, ()=>new Array(N+1).fill(0));
+  up   = Array.from({length:M+1}, ()=>new Array(N+1).fill(0));
+  stepIndex = 0; result = 0;
+}
+
+function lbl(t) {
+  const d = document.createElement('div');
+  d.className = 'cell lbl'; d.textContent = t; return d;
+}
+
+function makeCell(id, val, cls) {
+  const d = document.createElement('div');
+  d.className = `cell ${cls}`; d.id = id;
+  d.textContent = val; return d;
+}
+
+function buildGrids() {
+  // Matrix
+  const mg = document.getElementById('matGrid'); mg.innerHTML = '';
+  mg.appendChild(lbl(''));
+  for(let j=0;j<N;j++) mg.appendChild(lbl(`j${j}`));
+  for(let i=0;i<M;i++){
+    mg.appendChild(lbl(`i${i}`));
+    for(let j=0;j<N;j++){
+      const v = matrix[i][j];
+      mg.appendChild(makeCell(`m_${i}_${j}`, v, v?'m-one':'m-zero'));
+    }
+  }
+  // Left
+  const lg = document.getElementById('leftGrid'); lg.innerHTML = '';
+  lg.appendChild(lbl(''));
+  for(let j=0;j<=N;j++) lg.appendChild(lbl(j));
+  for(let i=0;i<=M;i++){
+    lg.appendChild(lbl(i===0?'B':i));
+    for(let j=0;j<=N;j++) lg.appendChild(makeCell(`l_${i}_${j}`, 0, 'l-base'));
+  }
+  // Up
+  const ug = document.getElementById('upGrid'); ug.innerHTML = '';
+  ug.appendChild(lbl(''));
+  for(let j=0;j<=N;j++) ug.appendChild(lbl(j));
+  for(let i=0;i<=M;i++){
+    ug.appendChild(lbl(i===0?'B':i));
+    for(let j=0;j<=N;j++) ug.appendChild(makeCell(`u_${i}_${j}`, 0, 'u-base'));
+  }
+}
+
+function setCls(id, cls, val) {
+  const el = document.getElementById(id);
+  if(!el) return;
+  el.className = `cell ${cls}`;
+  if(val !== undefined) el.textContent = val;
+}
+
+function nextStep() {
+  if(stepIndex >= M*N) return;
+  const i = Math.floor(stepIndex/N), j = stepIndex%N;
+
+  // Reset matrix highlights
+  for(let r=0;r<M;r++) for(let c=0;c<N;c++){
+    const v = matrix[r][c];
+    if(r < i || (r===i && c < j)) setCls(`m_${r}_${c}`, 'm-done');
+    else if(r===i && c===j) setCls(`m_${r}_${c}`, 'm-cur', v);
+    else setCls(`m_${r}_${c}`, v?'m-one':'m-zero', v);
+  }
+
+  let lv=0, uv=0, infoHtml='';
+
+  if(matrix[i][j] === 0){
+    lv=0; uv=0;
+    infoHtml = `<b style="color:#e74c3c">matrix[${i}][${j}] = 0 → 重置！</b><br>
+      left[${i+1}][${j+1}] = 0<br>
+      up[${i+1}][${j+1}] = 0<br>
+      <span style="color:#888">跳过检查</span>`;
+  } else {
+    lv = left[i+1][j] + 1;
+    uv = up[i][j+1] + 1;
+
+    const maxK = Math.min(lv, uv);
+    let foundK = 0;
+    let checkHtml = '';
+
+    for(let k = maxK; k >= 1; k--){
+      const ri = i+1, rj = j+1;
+      const trLeft = left[ri - k + 1]?.[rj] ?? 0;  // right-top corner left value
+      const blUp   = up[ri]?.[rj - k + 1] ?? 0;    // bottom-left corner up value
+      const ok = trLeft >= k && blUp >= k;
+      checkHtml += `k=${k}：右上left[${ri-k+1}][${rj}]=${trLeft}≥${k}? ${trLeft>=k?'✅':'❌'}  左下up[${ri}][${rj-k+1}]=${blUp}≥${k}? ${blUp>=k?'✅':'❌'}<br>`;
+      if(ok){ foundK = k; break; }
+    }
+
+    if(foundK > result) result = foundK;
+    document.getElementById('resultBox').textContent = result;
+
+    infoHtml = `<b>matrix[${i}][${j}]=1</b><br>
+      <span style="color:#2980b9">left[${i+1}][${j+1}] = ${left[i+1][j]}+1 = <b>${lv}</b></span><br>
+      <span style="color:#8e44ad">up[${i+1}][${j+1}] = ${up[i][j+1]}+1 = <b>${uv}</b></span><br>
+      maxK=min(${lv},${uv})=${maxK}<br>
+      ${checkHtml}
+      ${foundK>0?`<b style="color:#27ae60">→ 找到边长 ${foundK} 的正方形！result=${result}</b>`:'<span style="color:#888">→ 无新最大正方形</span>'}`;
+
+    // Highlight check corners in left/up grids
+    setTimeout(()=>{
+      const ri=i+1, rj=j+1;
+      if(foundK>0){
+        setCls(`l_${ri-foundK+1}_${rj}`, 'l-check', left[ri-foundK+1][rj]);
+        setCls(`u_${ri}_${rj-foundK+1}`, 'u-check', up[ri][rj-foundK+1]);
+        // highlight square on matrix
+        for(let r=i-foundK+1;r<=i;r++) for(let c=j-foundK+1;c<=j;c++){
+          const onBorder = r===i-foundK+1||r===i||c===j-foundK+1||c===j;
+          setCls(`m_${r}_${c}`, onBorder?'m-sq-border':'m-sq-inside');
+        }
+        setCls(`m_${i}_${j}`, 'm-cur');
+      }
+      setTimeout(()=>{
+        if(foundK>0){
+          setCls(`l_${ri-foundK+1}_${rj}`, left[ri-foundK+1][rj]===0?'l-zero':'l-val', left[ri-foundK+1][rj]);
+          setCls(`u_${ri}_${rj-foundK+1}`, up[ri][rj-foundK+1]===0?'u-zero':'u-val', up[ri][rj-foundK+1]);
+        }
+      }, 600);
+    }, 200);
+  }
+
+  left[i+1][j+1] = lv;
+  up[i+1][j+1]   = uv;
+
+  // Update left/up grids
+  setCls(`l_${i+1}_${j+1}`, 'l-cur', lv);
+  setCls(`u_${i+1}_${j+1}`, 'u-cur', uv);
+  setTimeout(()=>{
+    setCls(`l_${i+1}_${j+1}`, lv===0?'l-zero':'l-val', lv);
+    setCls(`u_${i+1}_${j+1}`, uv===0?'u-zero':'u-val', uv);
+  }, 400);
+
+  document.getElementById('info').innerHTML = infoHtml;
+  stepIndex++;
+  document.getElementById('stepCtr').textContent = `步骤 ${stepIndex} / ${M*N}`;
+  if(stepIndex >= M*N){
+    document.getElementById('info').innerHTML += `<br><b style="color:#e74c3c">✅ 完成！最大正方形边长 = ${result}</b>`;
+    stopAuto();
+  }
+}
+
+function reset() {
+  stopAuto(); init(); buildGrids();
+  document.getElementById('resultBox').textContent = '0';
+  document.getElementById('info').textContent = '点击"下一步"开始！';
+  document.getElementById('stepCtr').textContent = `步骤 0 / ${M*N}`;
+}
+
+function toggleAuto() {
+  autoTimer ? stopAuto() : startAuto();
+}
+function startAuto() {
+  const b = document.getElementById('autoBtn');
+  b.textContent = '⏸ 暂停'; b.classList.add('playing');
+  autoTimer = setInterval(()=>{ if(stepIndex>=M*N){stopAuto();return;} nextStep(); }, 700);
+}
+function stopAuto() {
+  clearInterval(autoTimer); autoTimer = null;
+  const b = document.getElementById('autoBtn');
+  b.textContent = '⚡ 自动'; b.classList.remove('playing');
+}
+
+init(); buildGrids();
+</script>
+</body>
+</html>
