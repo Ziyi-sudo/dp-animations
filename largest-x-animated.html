@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<style>
+  body { font-family: sans-serif; padding: 12px; background: #f5f5f5; color: #333; font-size: 12px; margin: 0; }
+  .title { font-size: 13px; font-weight: 700; margin: 10px 0 4px; }
+  .btn-row { display: flex; gap: 6px; margin: 6px 0; flex-wrap: wrap; align-items: center; }
+  button { padding: 6px 14px; border: none; border-radius: 6px; cursor: pointer; font-size: 12px; font-weight: 600; }
+  .bn { background: #2980b9; color: white; }
+  .ba { background: #27ae60; color: white; }
+  .ba.playing { background: #e74c3c; }
+  .br { background: #95a5a6; color: white; }
+  .result-box { background: #e74c3c; color: white; border-radius: 6px; padding: 3px 12px; font-size: 14px; font-weight: 700; }
+  .info { background: white; border-radius: 8px; padding: 8px 12px; margin: 6px 0; font-size: 11px; line-height: 1.8; min-height: 60px; border-left: 4px solid #2980b9; }
+  .step-ctr { font-size: 11px; color: #888; margin: 2px 0; }
+  .phase { font-size: 12px; font-weight: 700; padding: 3px 10px; border-radius: 4px; display: inline-block; margin: 4px 2px; }
+  .ph1 { background: #E8D5F5; color: #4A0072; }
+  .ph2 { background: #FAEEDA; color: #412402; }
+  .ph3 { background: #D5F5E3; color: #1e8449; }
+
+  .panels { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 8px; }
+  .panel { flex: 1; min-width: 160px; }
+  .sec-title { font-size: 10px; font-weight: 600; padding: 2px 6px; border-radius: 3px; display: inline-block; margin-bottom: 3px; }
+
+  .grid { display: grid; gap: 2px; }
+  .cell { width: 44px; height: 38px; display: flex; flex-direction: column; align-items: center; justify-content: center; font-size: 11px; font-weight: 700; border-radius: 3px; border: 1.5px solid #ccc; transition: all 0.2s; line-height: 1.3; }
+  .sub { font-size: 8px; font-weight: 400; }
+  .lbl { background: none !important; border: none !important; color: #888; font-size: 9px; font-weight: 400; }
+  .m1 { background: #D5F5E3; color: #1e8449; }
+  .m0 { background: #f0f0f0; color: #aaa; }
+  .mcur { background: #e74c3c; color: white; border: 2px solid #922b21 !important; }
+  .mdone { background: #AED6F1; color: #1a5276; }
+  .c-left { background: #E8D5F5; color: #4A0072; }
+  .c-up   { background: #B5D4F4; color: #042C53; }
+  .c-right{ background: #9FE1CB; color: #04342C; }
+  .c-down { background: #FAEEDA; color: #412402; }
+  .c-zero { background: #FADBD8; color: #922b21; }
+  .c-cur  { background: #F39C12; color: white; border: 2px solid #ca6f1e !important; }
+  .c-merge{ background: #e74c3c; color: white; border: 2px solid #922b21 !important; }
+  .c-base { background: #f0f0f0; color: #aaa; font-size: 9px; }
+</style>
+</head>
+<body>
+
+<div class="title">🎮 Largest X of 1s — 代码流程动画</div>
+<div style="margin-bottom:6px">
+  <span class="phase ph1">Step1: leftUp(↘ left + ↙ up)</span>
+  <span class="phase ph2">Step2: rightDown(↖ right + ↗ down)</span>
+  <span class="phase ph3">Step3: merge → 答案</span>
+</div>
+
+<div class="btn-row">
+  <button class="bn" onclick="nextStep()">▶ 下一步</button>
+  <button class="ba" id="autoBtn" onclick="toggleAuto()">⚡ 自动</button>
+  <button class="br" onclick="reset()">↺ 重置</button>
+  <span style="font-size:12px;color:#555;margin-left:8px">最大X臂长：<span class="result-box" id="resultBox">0</span></span>
+</div>
+<div class="step-ctr" id="stepCtr">步骤 0</div>
+<div class="info" id="info">点击"自动"开始！看代码如何一步步计算4个方向数组然后merge得到答案。</div>
+
+<div class="panels">
+  <div class="panel">
+    <div class="sec-title" style="background:#2c3e50;color:white">matrix（全1矩阵5×5）</div>
+    <div class="grid" id="matGrid" style="grid-template-columns:repeat(6,44px)"></div>
+  </div>
+  <div class="panel">
+    <div class="sec-title" style="background:#E8D5F5;color:#4A0072">left[i][j] ↘</div>
+    <div class="grid" id="leftGrid" style="grid-template-columns:repeat(6,44px)"></div>
+  </div>
+  <div class="panel">
+    <div class="sec-title" style="background:#B5D4F4;color:#042C53">up[i][j] ↙</div>
+    <div class="grid" id="upGrid" style="grid-template-columns:repeat(6,44px)"></div>
+  </div>
+  <div class="panel">
+    <div class="sec-title" style="background:#9FE1CB;color:#04342C">right[i][j] ↖</div>
+    <div class="grid" id="rightGrid" style="grid-template-columns:repeat(6,44px)"></div>
+  </div>
+  <div class="panel">
+    <div class="sec-title" style="background:#FAEEDA;color:#412402">down[i][j] ↗</div>
+    <div class="grid" id="downGrid" style="grid-template-columns:repeat(6,44px)"></div>
+  </div>
+  <div class="panel">
+    <div class="sec-title" style="background:#27ae60;color:white">merge结果</div>
+    <div class="grid" id="mergeGrid" style="grid-template-columns:repeat(6,44px)"></div>
+  </div>
+</div>
+
+<script>
+const N = 5, M = 5;
+// All 1s matrix with one 0 in center
+const matrix = [
+  [1,1,1,1,1],
+  [1,1,1,1,1],
+  [1,1,0,1,1],
+  [1,1,1,1,1],
+  [1,1,1,1,1],
+];
+
+let left, up, right, down, stepIndex, result, autoTimer, phase;
+
+function getNum(arr, x, y) {
+  if (x<0||x>=N||y<0||y>=M) return 0;
+  return arr[x][y];
+}
+
+function init() {
+  left  = Array.from({length:N},()=>new Array(M).fill(0));
+  up    = Array.from({length:N},()=>new Array(M).fill(0));
+  right = Array.from({length:N},()=>new Array(M).fill(0));
+  down  = Array.from({length:N},()=>new Array(M).fill(0));
+  stepIndex = 0; result = 0; phase = 1;
+}
+
+function lbl(t) {
+  const d=document.createElement('div');
+  d.className='cell lbl'; d.textContent=t; return d;
+}
+
+function makeCell(id, val, cls) {
+  const d=document.createElement('div');
+  d.className=`cell ${cls}`; d.id=id; d.textContent=val; return d;
+}
+
+function buildGrids() {
+  const grids = ['matGrid','leftGrid','upGrid','rightGrid','downGrid','mergeGrid'];
+  grids.forEach(id => {
+    const g=document.getElementById(id); g.innerHTML='';
+    g.appendChild(lbl(''));
+    for(let j=0;j<M;j++) g.appendChild(lbl(`j${j}`));
+    for(let i=0;i<N;i++) {
+      g.appendChild(lbl(`i${i}`));
+      for(let j=0;j<M;j++) {
+        const v = id==='matGrid' ? matrix[i][j] : 0;
+        const cls = id==='matGrid' ? (v?'m1':'m0') : 'c-base';
+        g.appendChild(makeCell(`${id}_${i}_${j}`, v, cls));
+      }
+    }
+  });
+}
+
+function setCls(id, cls, val) {
+  const el=document.getElementById(id);
+  if(!el) return;
+  el.className=`cell ${cls}`;
+  if(val!==undefined) el.textContent=val;
+}
+
+// Build steps
+// Phase 1: leftUp (left to right, top to bottom)
+// Phase 2: rightDown (right to left, bottom to top)
+// Phase 3: merge
+
+const phase1Steps = [];
+for(let i=0;i<N;i++) for(let j=0;j<M;j++) phase1Steps.push({i,j});
+
+const phase2Steps = [];
+for(let i=N-1;i>=0;i--) for(let j=M-1;j>=0;j--) phase2Steps.push({i,j});
+
+const phase3Steps = [];
+for(let i=0;i<N;i++) for(let j=0;j<M;j++) phase3Steps.push({i,j});
+
+const totalSteps = phase1Steps.length + phase2Steps.length + phase3Steps.length;
+
+function nextStep() {
+  const p1 = phase1Steps.length;
+  const p2 = phase2Steps.length;
+
+  if(stepIndex < p1) {
+    // Phase 1: leftUp
+    const {i,j} = phase1Steps[stepIndex];
+    // highlight matrix
+    for(let r=0;r<N;r++) for(let c=0;c<M;c++) {
+      const idx = r*M+c;
+      const curIdx = i*M+j;
+      if(idx < curIdx) setCls(`matGrid_${r}_${c}`, 'mdone');
+      else if(idx === curIdx) setCls(`matGrid_${r}_${c}`, 'mcur');
+      else setCls(`matGrid_${r}_${c}`, matrix[r][c]?'m1':'m0');
+    }
+
+    let lv=0, uv=0, info='';
+    if(matrix[i][j]===1) {
+      lv = getNum(left,i-1,j-1)+1;
+      uv = getNum(up,i-1,j+1)+1;
+      left[i][j]=lv; up[i][j]=uv;
+      info = `<span style="color:#4A0072"><b>Phase1 leftUp</b> (${i},${j})=1</span><br>
+        left[${i}][${j}] = left[${i-1}][${j-1}](${getNum(left,i-1,j-1)})+1 = <b>${lv}</b>　↘方向<br>
+        up[${i}][${j}] = up[${i-1}][${j+1}](${getNum(up,i-1,j+1)})+1 = <b>${uv}</b>　↙方向`;
+    } else {
+      info = `<span style="color:#922b21"><b>Phase1 leftUp</b> (${i},${j})=0 → left=0, up=0</span>`;
+    }
+    setCls(`leftGrid_${i}_${j}`, lv?'c-cur':'c-zero', lv);
+    setCls(`upGrid_${i}_${j}`, uv?'c-cur':'c-zero', uv);
+    setTimeout(()=>{
+      setCls(`leftGrid_${i}_${j}`, lv?'c-left':'c-zero', lv);
+      setCls(`upGrid_${i}_${j}`, uv?'c-up':'c-zero', uv);
+    }, 350);
+    document.getElementById('info').innerHTML = info;
+
+  } else if(stepIndex < p1+p2) {
+    // Phase 2: rightDown
+    const {i,j} = phase2Steps[stepIndex-p1];
+    let rv=0, dv=0, info='';
+    if(matrix[i][j]===1) {
+      rv = getNum(right,i+1,j+1)+1;
+      dv = getNum(down,i+1,j-1)+1;
+      right[i][j]=rv; down[i][j]=dv;
+      info = `<span style="color:#04342C"><b>Phase2 rightDown</b> (${i},${j})=1</span><br>
+        right[${i}][${j}] = right[${i+1}][${j+1}](${getNum(right,i+1,j+1)})+1 = <b>${rv}</b>　↖方向<br>
+        down[${i}][${j}] = down[${i+1}][${j-1}](${getNum(down,i+1,j-1)})+1 = <b>${dv}</b>　↗方向`;
+    } else {
+      info = `<span style="color:#922b21"><b>Phase2 rightDown</b> (${i},${j})=0 → right=0, down=0</span>`;
+    }
+    setCls(`rightGrid_${i}_${j}`, rv?'c-cur':'c-zero', rv);
+    setCls(`downGrid_${i}_${j}`, dv?'c-cur':'c-zero', dv);
+    setTimeout(()=>{
+      setCls(`rightGrid_${i}_${j}`, rv?'c-right':'c-zero', rv);
+      setCls(`downGrid_${i}_${j}`, dv?'c-down':'c-zero', dv);
+    }, 350);
+    document.getElementById('info').innerHTML = info;
+
+  } else {
+    // Phase 3: merge
+    const {i,j} = phase3Steps[stepIndex-p1-p2];
+    // merge within leftUp first (min of left and up)
+    const luMerged = Math.min(left[i][j], up[i][j]);
+    // merge within rightDown (min of right and down)
+    const rdMerged = Math.min(right[i][j], down[i][j]);
+    // final merge
+    const final = Math.min(luMerged, rdMerged);
+    if(final > result) result = final;
+    document.getElementById('resultBox').textContent = result;
+
+    setCls(`mergeGrid_${i}_${j}`, final>0?'c-merge':'c-zero', final);
+    setTimeout(()=>{
+      setCls(`mergeGrid_${i}_${j}`, final>0?'c-left':'c-zero', final);
+    }, 400);
+
+    document.getElementById('info').innerHTML =
+      `<span style="color:#1e8449"><b>Phase3 merge</b> (${i},${j})</span><br>
+      min(left=${left[i][j]}, up=${up[i][j]}) = ${luMerged}<br>
+      min(right=${right[i][j]}, down=${down[i][j]}) = ${rdMerged}<br>
+      <b>min(${luMerged}, ${rdMerged}) = ${final}</b>　${final>0?`→ result=${result}`:''}`;
+  }
+
+  stepIndex++;
+  document.getElementById('stepCtr').textContent = `步骤 ${stepIndex} / ${totalSteps}`;
+
+  if(stepIndex >= totalSteps) {
+    document.getElementById('info').innerHTML += `<br><b style="color:#e74c3c">✅ 完成！最大X臂长 = ${result}</b>`;
+    stopAuto();
+  }
+}
+
+function reset() {
+  stopAuto(); init(); buildGrids();
+  document.getElementById('resultBox').textContent='0';
+  document.getElementById('info').textContent='点击"自动"开始！';
+  document.getElementById('stepCtr').textContent='步骤 0';
+}
+
+function toggleAuto() { autoTimer ? stopAuto() : startAuto(); }
+function startAuto() {
+  const b=document.getElementById('autoBtn');
+  b.textContent='⏸ 暂停'; b.classList.add('playing');
+  autoTimer=setInterval(()=>{ if(stepIndex>=totalSteps){stopAuto();return;} nextStep(); }, 500);
+}
+function stopAuto() {
+  clearInterval(autoTimer); autoTimer=null;
+  const b=document.getElementById('autoBtn');
+  b.textContent='⚡ 自动'; b.classList.remove('playing');
+}
+
+init(); buildGrids();
+</script>
+</body>
+</html>
