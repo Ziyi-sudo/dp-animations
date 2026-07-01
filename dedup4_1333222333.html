@@ -1,0 +1,157 @@
+
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: -apple-system, BlinkMacSystemFont, sans-serif; background: #f5f5f7; padding: 24px; }
+h2 { font-size: 15px; color: #666; margin-bottom: 16px; font-weight: 400; font-family: monospace; }
+.main { display: flex; gap: 32px; align-items: flex-start; }
+.section-label { font-size: 12px; color: #999; margin-bottom: 8px; }
+.arr-row { display: flex; gap: 8px; }
+.idx-row { display: flex; gap: 8px; margin-top: 4px; }
+.cell {
+  width: 52px; height: 52px; border-radius: 10px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 20px; font-weight: 500; color: #1a1a1a;
+  background: #fff; border: 1.5px solid #d0d0d0;
+  transition: background 0.25s, border-color 0.25s, opacity 0.25s;
+}
+.cell.cur     { background: #EEEDFE; border: 2px solid #7F77DD; }
+.cell.skipped { background: #FAEEDA; border: 1.5px dashed #EF9F27; opacity: 0.6; }
+.cell.done    { opacity: 0.25; }
+.idx { width: 52px; text-align: center; font-size: 11px; color: #aaa; }
+
+.stack-wrap {
+  display: flex; flex-direction: column-reverse; gap: 6px;
+  min-height: 200px; justify-content: flex-start;
+  padding: 10px; background: #fff; border-radius: 10px;
+  border: 1.5px solid #d0d0d0; width: 64px; align-items: center;
+}
+.slab {
+  width: 46px; height: 46px; border-radius: 8px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 18px; font-weight: 500;
+  background: #EAF3DE; border: 1.5px solid #3B6D11; color: #1a5c2a;
+  transition: background 0.25s;
+}
+.slab.popping { background: #FDECEA; border-color: #A32D2D; color: #A32D2D; }
+.empty-label { font-size: 11px; color: #bbb; }
+
+.stepbox {
+  margin-top: 20px; background: #fff; border-radius: 10px;
+  padding: 14px 18px; font-size: 14px; color: #333; min-height: 56px;
+  border: 1.5px solid #e0e0e0;
+}
+.v-push { color: #0F6E56; font-weight: 600; }
+.v-pop  { color: #A32D2D; font-weight: 600; }
+.v-done { color: #5B4DB8; font-weight: 600; }
+
+.btn-row { display: flex; gap: 12px; margin-top: 16px; align-items: center; }
+button {
+  padding: 8px 22px; border-radius: 8px; border: 1.5px solid #d0d0d0;
+  background: #fff; font-size: 14px; cursor: pointer; color: #333;
+}
+button:hover { background: #f0f0f0; }
+.counter { margin-left: auto; font-size: 12px; color: #aaa; }
+</style>
+</head>
+<body>
+
+<h2>array = {1, 3, 3, 3, 2, 2, 2, 3, 3, 3}</h2>
+
+<div class="main">
+  <div>
+    <div class="section-label">array</div>
+    <div class="arr-row" id="arow"></div>
+    <div class="idx-row" id="irow"></div>
+  </div>
+  <div>
+    <div class="section-label">stack (top ↑)</div>
+    <div class="stack-wrap" id="stack"></div>
+  </div>
+</div>
+
+<div class="stepbox" id="sbox"></div>
+<div class="btn-row">
+  <button onclick="go(-1)">← Prev</button>
+  <button onclick="go(1)">Next →</button>
+  <span class="counter" id="ctr"></span>
+</div>
+
+<script>
+const arr = [1,3,3,3,2,2,2,3,3,3];
+
+// Each step: cur index being looked at, stack state AFTER action, which indices are "skipped/done", action type, message
+const steps = [
+  { cur:0, stack:[1], skipped:[], done:[],
+    type:'push', msg:'stack 空 → push 1' },
+  { cur:1, stack:[1,3], skipped:[], done:[0],
+    type:'push', msg:'栈顶=1, arr[1]=3, 不同 → push 3' },
+  { cur:2, stack:[1], skipped:[2,3,4], done:[0,1],
+    type:'pop', msg:'栈顶=3, arr[2]=3, 相同！→ pop 3，跳过整组 {3,3,3}（index 2~4）' },
+  { cur:5, stack:[1,2], skipped:[], done:[0,1,2,3,4],
+    type:'push', msg:'栈顶=1, arr[5]=2, 不同 → push 2' },
+  { cur:6, stack:[1], skipped:[5,6,7], done:[0,1,2,3,4],
+    type:'pop', msg:'栈顶=2, arr[5]=2, 相同！→ pop 2，跳过整组 {2,2,2}（index 5~7）' },
+  { cur:8, stack:[1,3], skipped:[], done:[0,1,2,3,4,5,6,7],
+    type:'push', msg:'栈顶=1, arr[8]=3, 不同 → push 3' },
+  { cur:9, stack:[1], skipped:[8,9,10], done:[0,1,2,3,4,5,6,7],
+    type:'pop', msg:'栈顶=3, arr[8]=3, 相同！→ pop 3，跳过整组 {3,3,3}（index 8~9）' },
+  { cur:-1, stack:[1], skipped:[], done:[0,1,2,3,4,5,6,7,8,9],
+    type:'done', msg:'遍历结束。stack = {1} → 写回 array → 返回 {1}' },
+];
+
+let cur = 0;
+
+function render() {
+  const s = steps[cur];
+  const ar = document.getElementById('arow');
+  const ir = document.getElementById('irow');
+  ar.innerHTML = ''; ir.innerHTML = '';
+
+  arr.forEach((v, i) => {
+    const d = document.createElement('div');
+    d.className = 'cell';
+    if (s.cur === i) d.classList.add('cur');
+    else if (s.skipped.includes(i)) d.classList.add('skipped');
+    else if (s.done.includes(i)) d.classList.add('done');
+    d.textContent = v;
+    ar.appendChild(d);
+
+    const l = document.createElement('div');
+    l.className = 'idx';
+    l.textContent = '[' + i + ']';
+    ir.appendChild(l);
+  });
+
+  const sw = document.getElementById('stack');
+  sw.innerHTML = '';
+  if (s.stack.length === 0) {
+    const e = document.createElement('div');
+    e.className = 'empty-label';
+    e.textContent = 'empty';
+    sw.appendChild(e);
+  } else {
+    s.stack.forEach((v, i) => {
+      const d = document.createElement('div');
+      d.className = 'slab';
+      if (s.type === 'pop' && i === s.stack.length - 1) d.classList.add('popping');
+      d.textContent = v;
+      sw.appendChild(d);
+    });
+  }
+
+  const colors = { push: 'v-push', pop: 'v-pop', done: 'v-done' };
+  const icons  = { push: '↑ push ', pop: '↓ pop ', done: '✓ ' };
+  document.getElementById('sbox').innerHTML =
+    '<span class="' + (colors[s.type]||'v-done') + '">' + (icons[s.type]||'') + '</span>' + s.msg;
+  document.getElementById('ctr').textContent = 'Step ' + (cur+1) + ' / ' + steps.length;
+}
+
+function go(d) { cur = Math.max(0, Math.min(steps.length-1, cur+d)); render(); }
+render();
+</script>
+</body>
+</html>
