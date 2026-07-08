@@ -1,96 +1,163 @@
-<h2 class="sr-only">动态演示：在BST中用中序遍历配合滑动窗口找离target最近的k个数</h2>
-<div style="display:flex;flex-direction:column;gap:16px">
-  <div style="display:flex;align-items:center;gap:8px;font-size:13px;color:var(--text-muted)">
-    <span>target = 11.5</span><span>&nbsp;&nbsp;k = 4</span>
-  </div>
-  <svg width="100%" viewBox="0 0 680 420" role="img">
-    <title>BST中序遍历滑动窗口演示</title>
-    <desc>展示中序遍历访问每个节点时如何维护大小为k的滑动窗口</desc>
-    <line x1="340" y1="72" x2="200" y2="118" stroke="var(--border-strong)" stroke-width="1"/>
-    <line x1="340" y1="72" x2="480" y2="118" stroke="var(--border-strong)" stroke-width="1"/>
-    <line x1="200" y1="152" x2="140" y2="198" stroke="var(--border-strong)" stroke-width="1"/>
-    <line x1="200" y1="152" x2="260" y2="198" stroke="var(--border-strong)" stroke-width="1"/>
-    <line x1="480" y1="152" x2="420" y2="198" stroke="var(--border-strong)" stroke-width="1"/>
-    <line x1="480" y1="152" x2="560" y2="198" stroke="var(--border-strong)" stroke-width="1"/>
-    <line x1="560" y1="232" x2="560" y2="278" stroke="var(--border-strong)" stroke-width="1"/>
-    <line x1="560" y1="312" x2="560" y2="358" stroke="var(--border-strong)" stroke-width="1"/>
+  <!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<title>Closest K Values in BST - 动态演示</title>
+<style>
+  body {
+    font-family: -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif;
+    background: #ffffff;
+    color: #1a1a1a;
+    max-width: 760px;
+    margin: 40px auto;
+    padding: 0 20px;
+  }
+  h2 { font-size: 20px; font-weight: 500; margin: 0 0 8px; }
+  .meta { font-size: 13px; color: #888; margin-bottom: 20px; }
+  svg { width: 100%; height: auto; display: block; }
+  .node-label { font-size: 14px; font-weight: 500; fill: #1a1a1a; }
+  .window-wrap { margin: 20px 0; }
+  .window-label { font-size: 12px; color: #999; margin-bottom: 6px; }
+  .window-boxes { display: flex; gap: 8px; min-height: 44px; }
+  .win-box {
+    padding: 8px 14px;
+    border-radius: 8px;
+    font-size: 14px;
+    font-weight: 500;
+    background: #f5f5f5;
+    border: 1px solid #ddd;
+    color: #333;
+  }
+  .win-box.oldest { border-color: #d97706; color: #d97706; background: #fef3e2; }
+  .win-box.empty { color: #bbb; border: 1px dashed #ddd; background: transparent; }
+  .panel {
+    background: #f7f7f5;
+    border-radius: 12px;
+    padding: 16px 20px;
+    min-height: 88px;
+  }
+  .panel-title { font-size: 15px; font-weight: 500; margin: 0 0 6px; }
+  .panel-desc { font-size: 14px; color: #555; margin: 0; line-height: 1.6; }
+  .controls {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-top: 16px;
+  }
+  button {
+    padding: 8px 20px;
+    border-radius: 8px;
+    border: 1px solid #ccc;
+    background: #fff;
+    font-size: 14px;
+    cursor: pointer;
+  }
+  button:hover { background: #f5f5f5; }
+  button:disabled { opacity: 0.4; cursor: default; }
+  .counter { font-size: 13px; color: #999; }
+</style>
+</head>
+<body>
 
-    <g id="node-10"><circle cx="340" cy="60" r="22" class="c-gray" stroke-width="0.5"/><text class="th" x="340" y="60" text-anchor="middle" dominant-baseline="central">10</text></g>
-    <g id="node-5"><circle cx="200" cy="140" r="22" class="c-gray" stroke-width="0.5"/><text class="th" x="200" y="140" text-anchor="middle" dominant-baseline="central">5</text></g>
-    <g id="node-15"><circle cx="480" cy="140" r="22" class="c-gray" stroke-width="0.5"/><text class="th" x="480" y="140" text-anchor="middle" dominant-baseline="central">15</text></g>
-    <g id="node-2"><circle cx="140" cy="220" r="20" class="c-gray" stroke-width="0.5"/><text class="ts" x="140" y="220" text-anchor="middle" dominant-baseline="central">2</text></g>
-    <g id="node-5.1"><circle cx="260" cy="220" r="20" class="c-gray" stroke-width="0.5"/><text class="ts" x="260" y="220" text-anchor="middle" dominant-baseline="central">5.1</text></g>
-    <g id="node-12"><circle cx="420" cy="220" r="20" class="c-gray" stroke-width="0.5"/><text class="ts" x="420" y="220" text-anchor="middle" dominant-baseline="central">12</text></g>
-    <g id="node-15.5"><circle cx="560" cy="220" r="20" class="c-gray" stroke-width="0.5"/><text class="ts" x="560" y="220" text-anchor="middle" dominant-baseline="central">15.5</text></g>
-    <g id="node-31.5"><circle cx="560" cy="300" r="20" class="c-gray" stroke-width="0.5"/><text class="ts" x="560" y="300" text-anchor="middle" dominant-baseline="central">31.5</text></g>
-    <g id="node-41.5"><circle cx="560" cy="380" r="20" class="c-gray" stroke-width="0.5"/><text class="ts" x="560" y="380" text-anchor="middle" dominant-baseline="central">41.5</text></g>
-  </svg>
+<h2>动态演示：在BST中用中序遍历配合滑动窗口找离target最近的k个数</h2>
+<div class="meta">target = 11.5 &nbsp;&nbsp; k = 4</div>
 
-  <div>
-    <p style="font-size:12px;color:var(--text-muted);margin:0 0 6px">窗口(queue)</p>
-    <div id="window-boxes" style="display:flex;gap:8px;min-height:44px"></div>
-  </div>
+<svg viewBox="0 0 680 420">
+  <line x1="340" y1="72" x2="200" y2="118" stroke="#ccc" stroke-width="1"/>
+  <line x1="340" y1="72" x2="480" y2="118" stroke="#ccc" stroke-width="1"/>
+  <line x1="200" y1="152" x2="140" y2="198" stroke="#ccc" stroke-width="1"/>
+  <line x1="200" y1="152" x2="260" y2="198" stroke="#ccc" stroke-width="1"/>
+  <line x1="480" y1="152" x2="420" y2="198" stroke="#ccc" stroke-width="1"/>
+  <line x1="480" y1="152" x2="560" y2="198" stroke="#ccc" stroke-width="1"/>
+  <line x1="560" y1="232" x2="560" y2="278" stroke="#ccc" stroke-width="1"/>
+  <line x1="560" y1="312" x2="560" y2="358" stroke="#ccc" stroke-width="1"/>
 
-  <div style="background:var(--surface-1);border-radius:12px;padding:1rem 1.25rem;min-height:88px">
-    <p id="step-title" style="font-size:15px;font-weight:500;margin:0 0 6px"></p>
-    <p id="step-desc" style="font-size:14px;color:var(--text-secondary);margin:0;line-height:1.6"></p>
-  </div>
+  <g id="node-10"><circle cx="340" cy="60" r="22" fill="#f1efe8" stroke="#5f5e5a" stroke-width="0.5"/><text class="node-label" x="340" y="60" text-anchor="middle" dominant-baseline="central">10</text></g>
+  <g id="node-5"><circle cx="200" cy="140" r="22" fill="#f1efe8" stroke="#5f5e5a" stroke-width="0.5"/><text class="node-label" x="200" y="140" text-anchor="middle" dominant-baseline="central">5</text></g>
+  <g id="node-15"><circle cx="480" cy="140" r="22" fill="#f1efe8" stroke="#5f5e5a" stroke-width="0.5"/><text class="node-label" x="480" y="140" text-anchor="middle" dominant-baseline="central">15</text></g>
+  <g id="node-2"><circle cx="140" cy="220" r="20" fill="#f1efe8" stroke="#5f5e5a" stroke-width="0.5"/><text class="node-label" x="140" y="220" text-anchor="middle" dominant-baseline="central" font-size="12">2</text></g>
+  <g id="node-5.1"><circle cx="260" cy="220" r="20" fill="#f1efe8" stroke="#5f5e5a" stroke-width="0.5"/><text class="node-label" x="260" y="220" text-anchor="middle" dominant-baseline="central" font-size="12">5.1</text></g>
+  <g id="node-12"><circle cx="420" cy="220" r="20" fill="#f1efe8" stroke="#5f5e5a" stroke-width="0.5"/><text class="node-label" x="420" y="220" text-anchor="middle" dominant-baseline="central" font-size="12">12</text></g>
+  <g id="node-15.5"><circle cx="560" cy="220" r="20" fill="#f1efe8" stroke="#5f5e5a" stroke-width="0.5"/><text class="node-label" x="560" y="220" text-anchor="middle" dominant-baseline="central" font-size="12">15.5</text></g>
+  <g id="node-31.5"><circle cx="560" cy="300" r="20" fill="#f1efe8" stroke="#5f5e5a" stroke-width="0.5"/><text class="node-label" x="560" y="300" text-anchor="middle" dominant-baseline="central" font-size="12">31.5</text></g>
+  <g id="node-41.5"><circle cx="560" cy="380" r="20" fill="#f1efe8" stroke="#5f5e5a" stroke-width="0.5"/><text class="node-label" x="560" y="380" text-anchor="middle" dominant-baseline="central" font-size="12">41.5</text></g>
+</svg>
 
-  <div style="display:flex;align-items:center;justify-content:space-between;gap:12px">
-    <button id="prev-btn" onclick="go(-1)">上一步</button>
-    <span id="step-counter" style="font-size:13px;color:var(--text-muted)"></span>
-    <button id="next-btn" onclick="go(1)">下一步</button>
-  </div>
+<div class="window-wrap">
+  <div class="window-label">窗口(queue)</div>
+  <div class="window-boxes" id="window-boxes"></div>
+</div>
+
+<div class="panel">
+  <p class="panel-title" id="step-title"></p>
+  <p class="panel-desc" id="step-desc"></p>
+</div>
+
+<div class="controls">
+  <button id="prev-btn" onclick="go(-1)">上一步</button>
+  <span class="counter" id="step-counter"></span>
+  <button id="next-btn" onclick="go(1)">下一步</button>
 </div>
 
 <script>
+const GRAY = { fill: "#f1efe8", stroke: "#5f5e5a" };
+const TEAL = { fill: "#e1f5ee", stroke: "#0f6e56" };
+const AMBER = { fill: "#faeeda", stroke: "#854f0b" };
+
 const steps = [
   { active:null, win:[], title:"开始", desc:"中序遍历从最左边的节点开始访问，target=11.5，窗口大小上限k=4。" },
   { active:"2", win:[2], title:"访问 2", desc:"窗口未满(0<4)，无脑塞入 → 窗口=[2]" },
   { active:"5", win:[2,5], title:"访问 5", desc:"窗口未满(1<4)，无脑塞入 → 窗口=[2,5]" },
   { active:"5.1", win:[2,5,5.1], title:"访问 5.1", desc:"窗口未满(2<4)，无脑塞入 → 窗口=[2,5,5.1]" },
   { active:"10", win:[2,5,5.1,10], title:"访问 10", desc:"窗口未满(3<4)，无脑塞入 → 窗口=[2,5,5.1,10]，窗口首次装满！" },
-  { active:"12", win:[5,5.1,10,12], title:"访问 12 → 触发比较", desc:"窗口满了。比较队首2和新节点12：|11.5-2|=9.5，|12-11.5|=0.5。0.5<9.5，新节点更近 → 踢掉队首2，换成12 → 窗口=[5,5.1,10,12]", replaced:true },
-  { active:"15", win:[5.1,10,12,15], title:"访问 15 → 触发比较", desc:"比较队首5和新节点15：|11.5-5|=6.5，|15-11.5|=3.5。3.5<6.5，新节点更近 → 踢掉队首5，换成15 → 窗口=[5.1,10,12,15]", replaced:true },
-  { active:"15.5", win:[10,12,15,15.5], title:"访问 15.5 → 触发比较", desc:"比较队首5.1和新节点15.5：|11.5-5.1|=6.4，|15.5-11.5|=4。4<6.4，新节点更近 → 踢掉队首5.1，换成15.5 → 窗口=[10,12,15,15.5]", replaced:true },
-  { active:"31.5", win:[10,12,15,15.5], title:"访问 31.5 → 比较后不换", desc:"比较队首10和新节点31.5：|11.5-10|=1.5，|31.5-11.5|=20。20>1.5，队首反而更近 → 不替换，窗口不变", replaced:false },
-  { active:"41.5", win:[10,12,15,15.5], title:"访问 41.5 → 比较后不换", desc:"同理，41.5离target更远，队首10依然更近 → 不替换，窗口不变", replaced:false },
+  { active:"12", win:[5,5.1,10,12], title:"访问 12 → 触发比较", desc:"窗口满了。比较队首2和新节点12：|11.5-2|=9.5，|12-11.5|=0.5。0.5<9.5，新节点更近 → 踢掉队首2，换成12 → 窗口=[5,5.1,10,12]" },
+  { active:"15", win:[5.1,10,12,15], title:"访问 15 → 触发比较", desc:"比较队首5和新节点15：|11.5-5|=6.5，|15-11.5|=3.5。3.5<6.5，新节点更近 → 踢掉队首5，换成15 → 窗口=[5.1,10,12,15]" },
+  { active:"15.5", win:[10,12,15,15.5], title:"访问 15.5 → 触发比较", desc:"比较队首5.1和新节点15.5：|11.5-5.1|=6.4，|15.5-11.5|=4。4<6.4，新节点更近 → 踢掉队首5.1，换成15.5 → 窗口=[10,12,15,15.5]" },
+  { active:"31.5", win:[10,12,15,15.5], title:"访问 31.5 → 比较后不换", desc:"比较队首10和新节点31.5：|11.5-10|=1.5，|31.5-11.5|=20。20>1.5，队首反而更近 → 不替换，窗口不变" },
+  { active:"41.5", win:[10,12,15,15.5], title:"访问 41.5 → 比较后不换", desc:"同理，41.5离target更远，队首10依然更近 → 不替换，窗口不变" },
   { active:null, win:[10,12,15,15.5], title:"遍历结束", desc:"中序遍历完成，窗口里最终剩下的4个数就是答案：[10, 12, 15, 15.5] ✅" },
 ];
 
 let cur = 0;
+const ids = ['10','5','15','2','5.1','12','15.5','31.5','41.5'];
+
+function setNodeColor(id, colorObj) {
+  const n = document.getElementById('node-' + id);
+  const c = n.querySelector('circle');
+  c.setAttribute('fill', colorObj.fill);
+  c.setAttribute('stroke', colorObj.stroke);
+}
 
 function render() {
   const s = steps[cur];
-  const ids = ['10','5','15','2','5.1','12','15.5','31.5','41.5'];
+
   ids.forEach(id => {
-    const n = document.getElementById('node-' + id);
-    n.querySelector('circle').setAttribute('class', 'c-gray');
-    n.querySelector('circle').style.strokeWidth = '0.5';
+    setNodeColor(id, GRAY);
+    document.getElementById('node-' + id).querySelector('circle').setAttribute('stroke-width', '0.5');
   });
+
   s.win.forEach(v => {
     const id = String(v);
-    const n = document.getElementById('node-' + id);
-    if (n) n.querySelector('circle').setAttribute('class', 'c-teal');
+    if (ids.includes(id)) setNodeColor(id, TEAL);
   });
+
   if (s.active) {
-    const n = document.getElementById('node-' + s.active);
-    n.querySelector('circle').setAttribute('class', 'c-amber');
-    n.querySelector('circle').style.strokeWidth = '2';
+    setNodeColor(s.active, AMBER);
+    document.getElementById('node-' + s.active).querySelector('circle').setAttribute('stroke-width', '2');
   }
 
   const boxContainer = document.getElementById('window-boxes');
   boxContainer.innerHTML = '';
   s.win.forEach((v, i) => {
     const box = document.createElement('div');
-    const isOldest = i === 0;
-    box.style.cssText = 'padding:8px 14px;border-radius:8px;font-size:14px;font-weight:500;background:var(--surface-1);border:0.5px solid var(--border-strong)' + (isOldest ? ';border-color:var(--text-accent);color:var(--text-accent)' : '');
+    box.className = 'win-box' + (i === 0 ? ' oldest' : '');
     box.textContent = v;
     boxContainer.appendChild(box);
   });
   for (let i = s.win.length; i < 4; i++) {
     const box = document.createElement('div');
-    box.style.cssText = 'padding:8px 14px;border-radius:8px;font-size:14px;color:var(--text-muted);border:0.5px dashed var(--border)';
+    box.className = 'win-box empty';
     box.textContent = '空';
     boxContainer.appendChild(box);
   }
@@ -111,3 +178,6 @@ function go(delta) {
 
 render();
 </script>
+
+</body>
+</html>
