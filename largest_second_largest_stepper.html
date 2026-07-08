@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<title>Largest And Second Largest - 锦标赛法动态演示</title>
+<style>
+  body {
+    font-family: -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif;
+    background: #ffffff;
+    color: #1a1a1a;
+    max-width: 820px;
+    margin: 40px auto;
+    padding: 0 20px;
+  }
+  h2 { font-size: 20px; font-weight: 500; margin: 0 0 8px; }
+  .meta { font-size: 13px; color: #888; margin-bottom: 24px; }
+  .array-row {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 24px;
+    flex-wrap: wrap;
+  }
+  .slot {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    transition: opacity 0.3s;
+  }
+  .box {
+    width: 52px;
+    height: 52px;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+    font-weight: 600;
+    border: 1.5px solid #ccc;
+    background: #f5f5f5;
+    color: #333;
+    transition: all 0.3s;
+  }
+  .box.active-pair { border-color: #d97706; background: #fef3e2; color: #854f0b; }
+  .box.winner { border-color: #0f6e56; background: #e1f5ee; color: #0f6e56; }
+  .box.inactive { opacity: 0.3; }
+  .idx-label { font-size: 11px; color: #aaa; }
+  .compared-chips {
+    display: flex;
+    gap: 4px;
+    min-height: 20px;
+    flex-wrap: wrap;
+    justify-content: center;
+    max-width: 70px;
+  }
+  .chip {
+    font-size: 11px;
+    padding: 2px 6px;
+    border-radius: 6px;
+    background: #eee;
+    color: #666;
+  }
+  .chip.found-max { background: #fef3e2; color: #854f0b; font-weight: 700; border: 1px solid #d97706; }
+  .panel {
+    background: #f7f7f5;
+    border-radius: 12px;
+    padding: 16px 20px;
+    min-height: 90px;
+  }
+  .panel-title { font-size: 15px; font-weight: 500; margin: 0 0 6px; }
+  .panel-desc { font-size: 14px; color: #555; margin: 0; line-height: 1.6; }
+  .controls {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-top: 16px;
+  }
+  button {
+    padding: 8px 20px;
+    border-radius: 8px;
+    border: 1px solid #ccc;
+    background: #fff;
+    font-size: 14px;
+    cursor: pointer;
+  }
+  button:hover { background: #f5f5f5; }
+  button:disabled { opacity: 0.4; cursor: default; }
+  .counter { font-size: 13px; color: #999; }
+  .legend { display: flex; gap: 16px; font-size: 12px; color: #888; margin-bottom: 16px; }
+  .legend span { display: inline-flex; align-items: center; gap: 4px; }
+  .dot { width: 10px; height: 10px; border-radius: 3px; display: inline-block; }
+</style>
+</head>
+<body>
+
+<h2>Largest And Second Largest - 锦标赛法（对称配对）动态演示</h2>
+<div class="meta">原数组：2, 1, 5, 4, 3, 8, 7, 6</div>
+
+<div class="legend">
+  <span><span class="dot" style="background:#fef3e2;border:1.5px solid #d97706"></span>当前比较中</span>
+  <span><span class="dot" style="background:#e1f5ee;border:1.5px solid #0f6e56"></span>冠军（最大值）</span>
+  <span><span class="dot" style="background:#f5f5f5;opacity:0.3;border:1.5px solid #ccc"></span>已淘汰/不再参与</span>
+</div>
+
+<div class="array-row" id="array-row"></div>
+
+<div class="panel">
+  <p class="panel-title" id="step-title"></p>
+  <p class="panel-desc" id="step-desc"></p>
+</div>
+
+<div class="controls">
+  <button id="prev-btn" onclick="go(-1)">上一步</button>
+  <span class="counter" id="step-counter"></span>
+  <button id="next-btn" onclick="go(1)">下一步</button>
+</div>
+
+<script>
+// 每一步：8个槽位的完整状态(value + compared列表) + 当前激活范围 + 高亮对 + 冠军标记 + 说明文字
+const steps = [
+  {
+    arr: [{v:2,c:[]},{v:1,c:[]},{v:5,c:[]},{v:4,c:[]},{v:3,c:[]},{v:8,c:[]},{v:7,c:[]},{v:6,c:[]}],
+    activeLen: 8, pair: null, winnerIdx: null,
+    title: "初始化", desc: "8个数排成一排，准备开始锦标赛淘汰。第一轮范围是全部8个位置（activeLen=8）。"
+  },
+  {
+    arr: [{v:6,c:[2]},{v:1,c:[]},{v:5,c:[]},{v:4,c:[]},{v:3,c:[]},{v:8,c:[]},{v:7,c:[]},{v:2,c:[]}],
+    activeLen: 8, pair: [0,7], winnerIdx: 0,
+    title: "第1轮 · 配对(0,7)", desc: "位置0(值2) vs 位置7(值6)：2<6，交换位置，6成为这一位的胜者，并记下\"我打败过2\"。"
+  },
+  {
+    arr: [{v:6,c:[2]},{v:7,c:[1]},{v:5,c:[]},{v:4,c:[]},{v:3,c:[]},{v:8,c:[]},{v:1,c:[]},{v:2,c:[]}],
+    activeLen: 8, pair: [1,6], winnerIdx: 1,
+    title: "第1轮 · 配对(1,6)", desc: "位置1(值1) vs 位置6(值7)：1<7，交换，7胜出，记下\"我打败过1\"。"
+  },
+  {
+    arr: [{v:6,c:[2]},{v:7,c:[1]},{v:8,c:[5]},{v:4,c:[]},{v:3,c:[]},{v:5,c:[]},{v:1,c:[]},{v:2,c:[]}],
+    activeLen: 8, pair: [2,5], winnerIdx: 2,
+    title: "第1轮 · 配对(2,5)", desc: "位置2(值5) vs 位置5(值8)：5<8，交换，8胜出，记下\"我打败过5\"。"
+  },
+  {
+    arr: [{v:6,c:[2]},{v:7,c:[1]},{v:8,c:[5]},{v:4,c:[3]},{v:3,c:[]},{v:5,c:[]},{v:1,c:[]},{v:2,c:[]}],
+    activeLen: 4, pair: [3,4], winnerIdx: 3,
+    title: "第1轮 · 配对(3,4)结束", desc: "位置3(值4) vs 位置4(值3)：4不小于3，不交换，4胜出，记下\"我打败过3\"。第1轮结束！前4位[6,7,8,4]晋级，activeLen缩小为4。"
+  },
+  {
+    arr: [{v:6,c:[2,4]},{v:7,c:[1]},{v:8,c:[5]},{v:4,c:[3]},{v:3,c:[]},{v:5,c:[]},{v:1,c:[]},{v:2,c:[]}],
+    activeLen: 4, pair: [0,3], winnerIdx: 0,
+    title: "第2轮 · 配对(0,3)", desc: "位置0(值6) vs 位置3(值4)：6不小于4，不交换，6胜出，记下\"我打败过4\"→ 6的战绩变成[2,4]。"
+  },
+  {
+    arr: [{v:6,c:[2,4]},{v:8,c:[5,7]},{v:7,c:[1]},{v:4,c:[3]},{v:3,c:[]},{v:5,c:[]},{v:1,c:[]},{v:2,c:[]}],
+    activeLen: 2, pair: [1,2], winnerIdx: 1,
+    title: "第2轮 · 配对(1,2)结束", desc: "位置1(值7) vs 位置2(值8)：7<8，交换，8胜出，记下\"我打败过7\"→ 8的战绩变成[5,7]。第2轮结束！前2位[6,8]晋级，activeLen缩小为2。"
+  },
+  {
+    arr: [{v:8,c:[5,7,6]},{v:6,c:[2,4]},{v:7,c:[1]},{v:4,c:[3]},{v:3,c:[]},{v:5,c:[]},{v:1,c:[]},{v:2,c:[]}],
+    activeLen: 1, pair: [0,1], winnerIdx: 0,
+    title: "第3轮 · 决赛(0,1)", desc: "位置0(值6) vs 位置1(值8)：6<8，交换，8胜出，记下\"我打败过6\"→ 冠军8的完整战绩是[5,7,6]。activeLen缩小为1，淘汰赛结束！"
+  },
+  {
+    arr: [{v:8,c:[5,7,6]},{v:6,c:[2,4]},{v:7,c:[1]},{v:4,c:[3]},{v:3,c:[]},{v:5,c:[]},{v:1,c:[]},{v:2,c:[]}],
+    activeLen: 1, pair: null, winnerIdx: 0, showCompared: true,
+    title: "冠军诞生：8", desc: "最大值确定是 8。它一路走来只打败过3个数：5、7、6（因为总共log₂(8)=3轮）。第二大的数，必然藏在这3个数里面 —— 不可能是被别人淘汰的数（比如1、2、3），因为如果它们能打赢8以外的人，8也一定能打赢他们。"
+  },
+  {
+    arr: [{v:8,c:[5,7,6]},{v:6,c:[2,4]},{v:7,c:[1]},{v:4,c:[3]},{v:3,c:[]},{v:5,c:[]},{v:1,c:[]},{v:2,c:[]}],
+    activeLen: 1, pair: null, winnerIdx: 0, showCompared: true, foundMax: 7,
+    title: "在冠军的战绩[5,7,6]里找最大值", desc: "只需要在这3个数里线性扫一遍（log(n)-1=2次比较）：5 vs 7 → 7更大；7 vs 6 → 7更大。第二大的数就是 7 ✅"
+  },
+  {
+    arr: [{v:8,c:[5,7,6]},{v:6,c:[2,4]},{v:7,c:[1]},{v:4,c:[3]},{v:3,c:[]},{v:5,c:[]},{v:1,c:[]},{v:2,c:[]}],
+    activeLen: 1, pair: null, winnerIdx: 0, showCompared: true, foundMax: 7,
+    title: "最终答案：最大值=8，第二大=7", desc: "总比较次数 = 淘汰赛阶段(7次) + 战绩列表里找最大(2次) = 9次，远少于朴素方法先找最大再找次大所需的 2×8-3=13 次。"
+  },
+];
+
+let cur = 0;
+
+function render() {
+  const s = steps[cur];
+  const container = document.getElementById('array-row');
+  container.innerHTML = '';
+
+  s.arr.forEach((item, idx) => {
+    const slot = document.createElement('div');
+    slot.className = 'slot';
+    const isInactive = idx >= s.activeLen;
+    if (isInactive) slot.style.opacity = '0.3';
+
+    const box = document.createElement('div');
+    let boxClass = 'box';
+    if (s.pair && (idx === s.pair[0] || idx === s.pair[1])) boxClass += ' active-pair';
+    if (s.winnerIdx !== null && idx === s.winnerIdx && !s.pair) boxClass += ' winner';
+    box.className = boxClass;
+    box.textContent = item.v;
+
+    const label = document.createElement('div');
+    label.className = 'idx-label';
+    label.textContent = 'idx' + idx;
+
+    const chips = document.createElement('div');
+    chips.className = 'compared-chips';
+    if (idx === 0 && s.showCompared) {
+      item.c.forEach(cv => {
+        const chip = document.createElement('span');
+        chip.className = 'chip' + (s.foundMax === cv ? ' found-max' : '');
+        chip.textContent = cv;
+        chips.appendChild(chip);
+      });
+    } else if (idx === 0) {
+      item.c.forEach(cv => {
+        const chip = document.createElement('span');
+        chip.className = 'chip';
+        chip.textContent = cv;
+        chips.appendChild(chip);
+      });
+    }
+
+    slot.appendChild(box);
+    slot.appendChild(label);
+    slot.appendChild(chips);
+    container.appendChild(slot);
+  });
+
+  document.getElementById('step-title').textContent = s.title;
+  document.getElementById('step-desc').textContent = s.desc;
+  document.getElementById('step-counter').textContent = (cur+1) + ' / ' + steps.length;
+  document.getElementById('prev-btn').disabled = cur === 0;
+  document.getElementById('next-btn').disabled = cur === steps.length - 1;
+}
+
+function go(delta) {
+  const next = cur + delta;
+  if (next < 0 || next >= steps.length) return;
+  cur = next;
+  render();
+}
+
+render();
+</script>
+
+</body>
+</html>
