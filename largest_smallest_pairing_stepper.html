@@ -1,41 +1,93 @@
-<h2 class="sr-only">动态演示：用对称配对法找数组中的最大值和最小值，减少比较次数</h2>
-<svg width="100%" viewBox="0 0 680 400" role="img">
-  <title>对称配对找最大最小值演示</title>
-  <desc>展示如何先对称配对整理数组，再分别在左右两半扫描最大值和最小值</desc>
-  <defs>
-    <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M2 1L8 5L2 9" fill="none" stroke="context-stroke" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></marker>
-  </defs>
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<title>Largest And Smallest - 对称配对法动态演示</title>
+<style>
+  body {
+    font-family: -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif;
+    background: #ffffff;
+    color: #1a1a1a;
+    max-width: 760px;
+    margin: 40px auto;
+    padding: 0 20px;
+  }
+  h2 { font-size: 20px; font-weight: 500; margin: 0 0 8px; }
+  .meta { font-size: 13px; color: #888; margin-bottom: 24px; }
+  svg { width: 100%; height: auto; display: block; }
+  .box-label { font-size: 18px; font-weight: 600; fill: #333; }
+  .idx-label { font-size: 12px; fill: #999; }
+  .region-label { font-size: 12px; }
+  .panel {
+    background: #f7f7f5;
+    border-radius: 12px;
+    padding: 16px 20px;
+    min-height: 90px;
+    margin-top: 16px;
+  }
+  .panel-title { font-size: 15px; font-weight: 500; margin: 0 0 6px; }
+  .panel-desc { font-size: 14px; color: #555; margin: 0; line-height: 1.6; }
+  .controls {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-top: 16px;
+  }
+  button {
+    padding: 8px 20px;
+    border-radius: 8px;
+    border: 1px solid #ccc;
+    background: #fff;
+    font-size: 14px;
+    cursor: pointer;
+  }
+  button:hover { background: #f5f5f5; }
+  button:disabled { opacity: 0.4; cursor: default; }
+  .counter { font-size: 13px; color: #999; }
+</style>
+</head>
+<body>
 
-  <rect id="region-left" x="90" y="130" width="310" height="110" rx="10" fill="none" stroke-width="1" stroke-dasharray="4 4" opacity="0"/>
-  <text id="region-left-label" class="ts" x="245" y="120" text-anchor="middle" opacity="0"></text>
-  <rect id="region-right" x="290" y="130" width="310" height="110" rx="10" fill="none" stroke-width="1" stroke-dasharray="4 4" opacity="0"/>
-  <text id="region-right-label" class="ts" x="445" y="120" text-anchor="middle" opacity="0"></text>
+<h2>Largest And Smallest - 对称配对法动态演示</h2>
+<div class="meta">原数组：2, 1, 5, 4, 3</div>
 
-  <g id="box-0"><rect x="100" y="150" width="80" height="70" rx="10" class="c-gray" stroke-width="0.5"/><text class="th" x="140" y="185" text-anchor="middle" dominant-baseline="central"></text></g>
-  <g id="box-1"><rect x="200" y="150" width="80" height="70" rx="10" class="c-gray" stroke-width="0.5"/><text class="th" x="240" y="185" text-anchor="middle" dominant-baseline="central"></text></g>
-  <g id="box-2"><rect x="300" y="150" width="80" height="70" rx="10" class="c-gray" stroke-width="0.5"/><text class="th" x="340" y="185" text-anchor="middle" dominant-baseline="central"></text></g>
-  <g id="box-3"><rect x="400" y="150" width="80" height="70" rx="10" class="c-gray" stroke-width="0.5"/><text class="th" x="440" y="185" text-anchor="middle" dominant-baseline="central"></text></g>
-  <g id="box-4"><rect x="500" y="150" width="80" height="70" rx="10" class="c-gray" stroke-width="0.5"/><text class="th" x="540" y="185" text-anchor="middle" dominant-baseline="central"></text></g>
+<svg viewBox="0 0 680 400">
+  <rect id="region-left" x="90" y="130" width="310" height="110" rx="10" fill="none" stroke-width="1.5" stroke-dasharray="4 4" opacity="0"/>
+  <text id="region-left-label" class="region-label" x="245" y="120" text-anchor="middle" opacity="0"></text>
+  <rect id="region-right" x="290" y="130" width="310" height="110" rx="10" fill="none" stroke-width="1.5" stroke-dasharray="4 4" opacity="0"/>
+  <text id="region-right-label" class="region-label" x="445" y="120" text-anchor="middle" opacity="0"></text>
 
-  <text class="ts" x="140" y="240" text-anchor="middle">idx0</text>
-  <text class="ts" x="240" y="240" text-anchor="middle">idx1</text>
-  <text class="ts" x="340" y="240" text-anchor="middle">idx2</text>
-  <text class="ts" x="440" y="240" text-anchor="middle">idx3</text>
-  <text class="ts" x="540" y="240" text-anchor="middle">idx4</text>
+  <g id="box-0"><rect x="100" y="150" width="80" height="70" rx="10" fill="#f1efe8" stroke="#5f5e5a" stroke-width="0.5"/><text class="box-label" x="140" y="185" text-anchor="middle" dominant-baseline="central"></text></g>
+  <g id="box-1"><rect x="200" y="150" width="80" height="70" rx="10" fill="#f1efe8" stroke="#5f5e5a" stroke-width="0.5"/><text class="box-label" x="240" y="185" text-anchor="middle" dominant-baseline="central"></text></g>
+  <g id="box-2"><rect x="300" y="150" width="80" height="70" rx="10" fill="#f1efe8" stroke="#5f5e5a" stroke-width="0.5"/><text class="box-label" x="340" y="185" text-anchor="middle" dominant-baseline="central"></text></g>
+  <g id="box-3"><rect x="400" y="150" width="80" height="70" rx="10" fill="#f1efe8" stroke="#5f5e5a" stroke-width="0.5"/><text class="box-label" x="440" y="185" text-anchor="middle" dominant-baseline="central"></text></g>
+  <g id="box-4"><rect x="500" y="150" width="80" height="70" rx="10" fill="#f1efe8" stroke="#5f5e5a" stroke-width="0.5"/><text class="box-label" x="540" y="185" text-anchor="middle" dominant-baseline="central"></text></g>
+
+  <text class="idx-label" x="140" y="240" text-anchor="middle">idx0</text>
+  <text class="idx-label" x="240" y="240" text-anchor="middle">idx1</text>
+  <text class="idx-label" x="340" y="240" text-anchor="middle">idx2</text>
+  <text class="idx-label" x="440" y="240" text-anchor="middle">idx3</text>
+  <text class="idx-label" x="540" y="240" text-anchor="middle">idx4</text>
 </svg>
 
-<div style="background:var(--surface-1);border-radius:12px;padding:1rem 1.25rem;min-height:88px;margin-top:12px">
-  <p id="step-title" style="font-size:15px;font-weight:500;margin:0 0 6px"></p>
-  <p id="step-desc" style="font-size:14px;color:var(--text-secondary);margin:0;line-height:1.6"></p>
+<div class="panel">
+  <p class="panel-title" id="step-title"></p>
+  <p class="panel-desc" id="step-desc"></p>
 </div>
 
-<div style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:12px">
+<div class="controls">
   <button id="prev-btn" onclick="go(-1)">上一步</button>
-  <span id="step-counter" style="font-size:13px;color:var(--text-muted)"></span>
+  <span class="counter" id="step-counter"></span>
   <button id="next-btn" onclick="go(1)">下一步</button>
 </div>
 
 <script>
+const GRAY = { fill: "#f1efe8", stroke: "#5f5e5a" };
+const AMBER = { fill: "#faeeda", stroke: "#854f0b" };
+const TEAL_STROKE = "#0f6e56";
+const AMBER_STROKE = "#854f0b";
+
 const steps = [
   { arr:[2,1,5,4,3], highlight:[], region:null, title:"初始数组", desc:"原数组 [2,1,5,4,3]，n=5。开始第一步：对称配对整理，把每对中较大的换到左边。" },
   { arr:[2,1,5,4,3], highlight:[0,4], region:null, title:"配对 (idx0, idx4)", desc:"比较 idx0=2 和 idx4=3：2<3，说明左边这个更小，需要交换位置。" },
@@ -45,24 +97,30 @@ const steps = [
   { arr:[3,4,5,1,2], highlight:[], region:"both", title:"划分两个候选区", desc:"左半区 idx0~idx2 = [3,4,5]：全局最大值必然在这里。右半区 idx2~idx4 = [5,1,2]：全局最小值必然在这里。" },
   { arr:[3,4,5,1,2], highlight:[2], region:"left", title:"左半区扫描找最大值", desc:"在 [3,4,5] 里线性扫一遍，找到最大值 5（在idx2）。" },
   { arr:[3,4,5,1,2], highlight:[3], region:"right", title:"右半区扫描找最小值", desc:"在 [5,1,2] 里线性扫一遍，找到最小值 1（在idx3）。" },
-  { arr:[3,4,5,1,2], highlight:[2,3], region:"both", title:"最终答案", desc:"最大值 = 5，最小值 = 1。总比较次数约 3n/2-2，比朴素扫一遍的 2n-2 更省。" },
+  { arr:[3,4,5,1,2], highlight:[2,3], region:"both", title:"最终答案", desc:"最大值 = 5，最小值 = 1。总比较次数约 3n/2-2，比朴素扫一遍的 2n-2 更省，且已达到理论最优下限。" },
 ];
 
 let cur = 0;
+
+function setBoxColor(id, colorObj) {
+  const n = document.getElementById('box-' + id);
+  const c = n.querySelector('rect');
+  c.setAttribute('fill', colorObj.fill);
+  c.setAttribute('stroke', colorObj.stroke);
+}
 
 function render() {
   const s = steps[cur];
   for (let i = 0; i < 5; i++) {
     const box = document.getElementById('box-' + i);
-    const rect = box.querySelector('rect');
     const text = box.querySelector('text');
     text.textContent = s.arr[i];
     if (s.highlight.includes(i)) {
-      rect.setAttribute('class', 'c-amber');
-      rect.setAttribute('stroke-width', '2');
+      setBoxColor(i, AMBER);
+      box.querySelector('rect').setAttribute('stroke-width', '2');
     } else {
-      rect.setAttribute('class', 'c-gray');
-      rect.setAttribute('stroke-width', '0.5');
+      setBoxColor(i, GRAY);
+      box.querySelector('rect').setAttribute('stroke-width', '0.5');
     }
   }
 
@@ -73,10 +131,10 @@ function render() {
 
   if (s.region === 'both' || s.region === 'left') {
     regionLeft.setAttribute('opacity', '1');
-    regionLeft.setAttribute('stroke', '#0f6e56');
+    regionLeft.setAttribute('stroke', TEAL_STROKE);
     regionLeftLabel.setAttribute('opacity', '1');
     regionLeftLabel.textContent = '左半区 · 找最大值';
-    regionLeftLabel.setAttribute('fill', '#0f6e56');
+    regionLeftLabel.setAttribute('fill', TEAL_STROKE);
   } else {
     regionLeft.setAttribute('opacity', '0');
     regionLeftLabel.setAttribute('opacity', '0');
@@ -84,10 +142,10 @@ function render() {
 
   if (s.region === 'both' || s.region === 'right') {
     regionRight.setAttribute('opacity', '1');
-    regionRight.setAttribute('stroke', '#854f0b');
+    regionRight.setAttribute('stroke', AMBER_STROKE);
     regionRightLabel.setAttribute('opacity', '1');
     regionRightLabel.textContent = '右半区 · 找最小值';
-    regionRightLabel.setAttribute('fill', '#854f0b');
+    regionRightLabel.setAttribute('fill', AMBER_STROKE);
   } else {
     regionRight.setAttribute('opacity', '0');
     regionRightLabel.setAttribute('opacity', '0');
@@ -109,3 +167,6 @@ function go(delta) {
 
 render();
 </script>
+
+</body>
+</html>
