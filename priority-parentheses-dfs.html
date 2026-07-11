@@ -1,0 +1,326 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>带优先级限制的括号 DFS - 动态演示</title>
+<style>
+  :root {
+    --bg: #ffffff;
+    --surface-1: #f5f4f0;
+    --text-primary: #1a1a18;
+    --text-secondary: #6b6a63;
+    --text-muted: #9a988f;
+    --border: #e2e0d8;
+    --border-strong: #c8c6bc;
+
+    --purple-50: #EEEDFE;
+    --purple-600: #534AB7;
+    --purple-800: #3C3489;
+
+    --teal-50: #E1F5EE;
+    --teal-600: #0F6E56;
+    --teal-800: #085041;
+
+    --green-bg: #EAF3DE;
+    --green-text: #27500A;
+
+    --red-bg: #FCEBEB;
+    --red-text: #A32D2D;
+
+    --radius: 10px;
+    --mono: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+    --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #1c1c1a;
+      --surface-1: #2a2a27;
+      --text-primary: #f0efe9;
+      --text-secondary: #b0aea5;
+      --text-muted: #8a887f;
+      --border: #3a3a36;
+      --border-strong: #4c4c47;
+
+      --purple-50: #26215C;
+      --purple-600: #7F77DD;
+      --purple-800: #CECBF6;
+
+      --teal-50: #04342C;
+      --teal-600: #1D9E75;
+      --teal-800: #9FE1CB;
+
+      --green-bg: #173404;
+      --green-text: #97C459;
+
+      --red-bg: #501313;
+      --red-text: #F09595;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    padding: 2rem 1rem;
+    background: var(--bg);
+    color: var(--text-primary);
+    font-family: var(--sans);
+    display: flex;
+    justify-content: center;
+  }
+  .wrap { width: 100%; max-width: 720px; }
+  h1 {
+    font-size: 20px;
+    font-weight: 500;
+    margin: 0 0 0.25rem;
+  }
+  .subtitle {
+    font-size: 14px;
+    color: var(--text-secondary);
+    margin: 0 0 1.5rem;
+    line-height: 1.6;
+  }
+  .legend { display: flex; gap: 10px; margin-bottom: 1.25rem; flex-wrap: wrap; }
+  .legend-chip {
+    display: flex; align-items: center; gap: 6px;
+    padding: 6px 12px; border-radius: 999px;
+    font-size: 13px; font-weight: 500;
+  }
+  .legend-chip .dot { width: 10px; height: 10px; border-radius: 50%; }
+  .controls {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 12px;
+    flex-wrap: wrap;
+  }
+  button {
+    height: 36px;
+    padding: 0 14px;
+    border-radius: var(--radius);
+    border: 0.5px solid var(--border-strong);
+    background: transparent;
+    color: var(--text-primary);
+    font-size: 14px;
+    cursor: pointer;
+    font-family: var(--sans);
+  }
+  button:hover { background: var(--surface-1); }
+  button:active { transform: scale(0.98); }
+  button.primary {
+    background: var(--purple-600);
+    color: #fff;
+    border-color: var(--purple-600);
+  }
+  button.primary:hover { background: var(--purple-800); border-color: var(--purple-800); }
+  .counter {
+    font-size: 13px;
+    color: var(--text-secondary);
+    margin-left: auto;
+  }
+  .card {
+    background: var(--surface-1);
+    border-radius: var(--radius);
+    padding: 1rem 1.25rem;
+    margin-bottom: 12px;
+  }
+  .card-label {
+    font-size: 13px;
+    color: var(--text-secondary);
+    margin-bottom: 8px;
+  }
+  #msg { font-size: 15px; font-weight: 500; min-height: 44px; line-height: 1.5; transition: color .15s; }
+  #path {
+    font-family: var(--mono);
+    font-size: 24px;
+    letter-spacing: 3px;
+    min-height: 32px;
+    font-weight: 500;
+  }
+  #stack { display: flex; gap: 6px; min-height: 34px; }
+  .stack-box {
+    width: 34px; height: 34px;
+    border-radius: var(--radius);
+    display: flex; align-items: center; justify-content: center;
+    font-family: var(--mono); font-weight: 500; font-size: 16px;
+    border: 0.5px solid var(--border);
+  }
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  #results { display: flex; gap: 8px; flex-wrap: wrap; font-family: var(--mono); font-size: 14px; }
+  .result-pill {
+    background: var(--green-bg); color: var(--green-text);
+    padding: 4px 12px; border-radius: 999px; font-weight: 500;
+  }
+  .p-color { background: var(--purple-50); color: var(--purple-800); }
+  .t-color { background: var(--teal-50); color: var(--teal-800); }
+  @media (max-width: 480px) {
+    .grid2 { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>带优先级限制的括号 DFS</h1>
+  <p class="subtitle">
+    1 对 <code>()</code>（优先级 0）+ 1 对 <code>&lt;&gt;</code>（优先级 1）。开括号前必须检查：
+    stack 为空，或者栈顶下标 <b>严格大于</b> 要开的下标，才允许嵌套——这保证了优先级低的括号不能当外壳包住优先级高的。
+  </p>
+
+  <div class="legend">
+    <span class="legend-chip p-color"><span class="dot" style="background:var(--purple-600)"></span>( ) 优先级 0</span>
+    <span class="legend-chip t-color"><span class="dot" style="background:var(--teal-600)"></span>&lt; &gt; 优先级 1</span>
+  </div>
+
+  <div class="controls">
+    <button id="btnPrev">⏮ 上一步</button>
+    <button class="primary" id="btnPlay">▶ 播放</button>
+    <button id="btnNext">下一步 ⏭</button>
+    <button id="btnReset">↺ 重置</button>
+    <span class="counter" id="stepCounter">步骤 0/0</span>
+  </div>
+
+  <div class="card">
+    <div class="card-label">当前动作</div>
+    <div id="msg"></div>
+  </div>
+
+  <div class="grid2" style="margin-bottom:12px;">
+    <div class="card" style="margin-bottom:0;">
+      <div class="card-label">当前路径 path</div>
+      <div id="path"></div>
+    </div>
+    <div class="card" style="margin-bottom:0;">
+      <div class="card-label">stack（存下标，栈顶在左，数字越大优先级越高）</div>
+      <div id="stack"></div>
+    </div>
+  </div>
+
+  <div class="card" style="margin-bottom:0;">
+    <div class="card-label">已找到的合法结果</div>
+    <div id="results"></div>
+  </div>
+</div>
+
+<script>
+(function(){
+var PS = ['(',')','<','>'];
+var l=1, m=1;
+var remainInit=[l,l,m,m];
+var targetLen=2*l+2*m;
+var steps=[];
+
+var cur='';
+var stack=[];
+var remain=remainInit.slice();
+var resultsAcc=[];
+
+function helper(){
+  if(cur.length===targetLen){
+    resultsAcc.push(cur);
+    steps.push({type:'success', path:cur, stack:stack.slice(), results:resultsAcc.slice()});
+    return;
+  }
+  for(var i=0;i<4;i++){
+    if(i%2===0){
+      var canOpen = stack.length===0 || stack[0] > i;
+      if(remain[i]>0 && canOpen){
+        steps.push({type:'try_open_ok', i:i, path:cur, stack:stack.slice()});
+        cur+=PS[i]; stack.unshift(i); remain[i]--;
+        steps.push({type:'did_open', i:i, path:cur, stack:stack.slice()});
+        helper();
+        remain[i]++; stack.shift(); cur=cur.slice(0,-1);
+        steps.push({type:'backtrack_open', i:i, path:cur, stack:stack.slice()});
+      } else if(remain[i]>0){
+        steps.push({type:'reject_priority', i:i, path:cur, stack:stack.slice()});
+      }
+    } else {
+      if(stack.length>0 && stack[0]===i-1){
+        steps.push({type:'try_close_ok', i:i, path:cur, stack:stack.slice()});
+        cur+=PS[i]; stack.shift(); remain[i]--;
+        steps.push({type:'did_close', i:i, path:cur, stack:stack.slice()});
+        helper();
+        remain[i]++; cur=cur.slice(0,-1); stack.unshift(i-1);
+        steps.push({type:'backtrack_close', i:i, path:cur, stack:stack.slice()});
+      } else if(stack.length>0){
+        steps.push({type:'reject_mismatch', i:i, path:cur, stack:stack.slice()});
+      }
+    }
+  }
+}
+helper();
+
+var msgFns={
+  try_open_ok: function(s){ return '尝试放开括号 "'+PS[s.i]+'"（下标'+s.i+'）：栈为空或栈顶下标 > '+s.i+'，优先级检查通过'; },
+  did_open: function(s){ return '放入 "'+PS[s.i]+'"，把下标 '+s.i+' 压入 stack'; },
+  backtrack_open: function(s){ return '回溯：撤销 "'+PS[s.i]+'"，弹出 stack，还原 remain'; },
+  reject_priority: function(s){ return '想放开括号 "'+PS[s.i]+'"（下标'+s.i+'），但栈顶下标 '+s.stack[0]+' 不大于 '+s.i+' → 优先级不够，拒绝'; },
+  try_close_ok: function(s){ return '尝试放闭括号 "'+PS[s.i]+'"：栈顶下标 == '+(s.i-1)+'，匹配，允许闭合'; },
+  did_close: function(s){ return '放入 "'+PS[s.i]+'"，弹出 stack 栈顶'; },
+  backtrack_close: function(s){ return '回溯：撤销 "'+PS[s.i]+'"，还原 stack 和 remain'; },
+  reject_mismatch: function(s){ return '想放 "'+PS[s.i]+'"，但 stack 栈顶下标 '+s.stack[0]+' 不等于 '+(s.i-1)+'，顺序不匹配 → 跳过'; },
+  success: function(s){ return '长度达标 → 得到合法结果 "'+s.path+'"'; }
+};
+
+var idx=0, playing=false, timer=null;
+
+function render(){
+  var s=steps[idx];
+  document.getElementById('stepCounter').textContent='步骤 '+(idx+1)+'/'+steps.length;
+  var msgEl=document.getElementById('msg');
+  msgEl.textContent = s? msgFns[s.type](s) : '';
+  msgEl.style.color = s && (s.type==='reject_priority'||s.type==='reject_mismatch') ? 'var(--red-text)' : (s && s.type==='success' ? 'var(--green-text)' : 'var(--text-primary)');
+  document.getElementById('path').textContent = s? (s.path.length? s.path : '(空)') : '';
+
+  var stackEl=document.getElementById('stack');
+  stackEl.innerHTML='';
+  if(s){
+    s.stack.forEach(function(idxVal,i){
+      var box=document.createElement('div');
+      box.className='stack-box '+(idxVal<2 ? 'p-color' : 't-color');
+      box.textContent=idxVal;
+      if(i===0) box.style.outline='2px solid var(--border-strong)';
+      stackEl.appendChild(box);
+    });
+    if(s.stack.length===0){
+      stackEl.innerHTML='<span style="color:var(--text-muted); font-size:13px;">空</span>';
+    }
+  }
+
+  var resEl=document.getElementById('results');
+  resEl.innerHTML='';
+  var finished = s && s.results ? s.results : [];
+  finished.forEach(function(r){
+    var pill=document.createElement('span');
+    pill.className='result-pill';
+    pill.textContent=r;
+    resEl.appendChild(pill);
+  });
+}
+
+document.getElementById('btnNext').onclick=function(){
+  if(idx<steps.length-1){ idx++; render(); } else { stopPlay(); }
+};
+document.getElementById('btnPrev').onclick=function(){
+  if(idx>0){ idx--; render(); }
+};
+document.getElementById('btnReset').onclick=function(){
+  idx=0; render(); stopPlay();
+};
+function stopPlay(){
+  playing=false;
+  clearInterval(timer);
+  document.getElementById('btnPlay').textContent='▶ 播放';
+}
+document.getElementById('btnPlay').onclick=function(){
+  if(playing){ stopPlay(); return; }
+  playing=true;
+  document.getElementById('btnPlay').textContent='⏸ 暂停';
+  timer=setInterval(function(){
+    if(idx<steps.length-1){ idx++; render(); } else { stopPlay(); }
+  }, 900);
+};
+
+render();
+})();
+</script>
+</body>
+</html>
