@@ -1,0 +1,571 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Quick Sort 可视化</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#0B1220;
+    --panel:#121B2E;
+    --panel-2:#17223A;
+    --line:#233252;
+    --text:#E7ECF6;
+    --muted:#8592AD;
+    --pivot:#FFB454;
+    --compare:#5EEAD4;
+    --sorted:#34D399;
+    --bar:#2C3B5C;
+    --bar-dim:#1C2740;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    background:var(--bg);
+    color:var(--text);
+    font-family:'Inter',sans-serif;
+    padding:32px 20px 60px;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+  }
+  .wrap{
+    width:100%;
+    max-width:920px;
+  }
+  h1{
+    font-family:'Space Grotesk',sans-serif;
+    font-weight:700;
+    font-size:28px;
+    margin:0 0 4px;
+    letter-spacing:-0.02em;
+  }
+  .sub{
+    color:var(--muted);
+    font-size:14px;
+    margin:0 0 28px;
+  }
+  .panel{
+    background:var(--panel);
+    border:1px solid var(--line);
+    border-radius:14px;
+    padding:24px;
+    margin-bottom:20px;
+  }
+  .bars{
+    display:flex;
+    align-items:flex-end;
+    justify-content:center;
+    gap:4px;
+    height:260px;
+    padding:0 4px;
+  }
+  .bar{
+    flex:1;
+    max-width:40px;
+    border-radius:4px 4px 0 0;
+    background:var(--bar);
+    position:relative;
+    transition:background 0.15s ease, opacity 0.15s ease, transform 0.15s ease;
+    display:flex;
+    align-items:flex-start;
+    justify-content:center;
+  }
+  .bar span{
+    position:absolute;
+    top:-22px;
+    font-family:'JetBrains Mono',monospace;
+    font-size:11px;
+    color:var(--muted);
+  }
+  .bar .tag{
+    position:absolute;
+    bottom:-22px;
+    font-family:'JetBrains Mono',monospace;
+    font-size:11px;
+    font-weight:500;
+  }
+  .track-wrap{
+    margin-top:36px;
+  }
+  .track{
+    position:relative;
+    height:10px;
+    background:var(--bar-dim);
+    border-radius:6px;
+    overflow:hidden;
+  }
+  .track-active{
+    position:absolute;
+    top:0;
+    height:100%;
+    border-radius:6px;
+    transition:left 0.2s ease, width 0.2s ease, background 0.2s ease;
+  }
+  .track-label{
+    font-family:'JetBrains Mono',monospace;
+    font-size:12px;
+    color:var(--muted);
+    margin-top:8px;
+    text-align:center;
+  }
+  .controls{
+    display:flex;
+    flex-wrap:wrap;
+    align-items:center;
+    gap:14px;
+    margin-bottom:20px;
+  }
+  button{
+    background:var(--panel-2);
+    color:var(--text);
+    border:1px solid var(--line);
+    border-radius:8px;
+    padding:9px 16px;
+    font-family:'Inter',sans-serif;
+    font-size:13px;
+    font-weight:500;
+    cursor:pointer;
+    transition:background 0.15s ease, border-color 0.15s ease;
+  }
+  button:hover{
+    background:#1D2B47;
+    border-color:#334369;
+  }
+  button:active{transform:scale(0.97);}
+  button.primary{
+    background:var(--pivot);
+    color:#33220A;
+    border-color:var(--pivot);
+  }
+  button.primary:hover{background:#FFC578;}
+  button:disabled{opacity:0.4;cursor:not-allowed;}
+  .slider-group{
+    display:flex;
+    align-items:center;
+    gap:8px;
+    font-size:13px;
+    color:var(--muted);
+  }
+  input[type=range]{
+    accent-color:var(--pivot);
+  }
+  .stats{
+    display:flex;
+    gap:24px;
+    flex-wrap:wrap;
+  }
+  .stat{
+    display:flex;
+    flex-direction:column;
+    gap:2px;
+  }
+  .stat .num{
+    font-family:'JetBrains Mono',monospace;
+    font-size:20px;
+    font-weight:500;
+  }
+  .stat .label{
+    font-size:12px;
+    color:var(--muted);
+  }
+  .legend{
+    display:flex;
+    gap:18px;
+    flex-wrap:wrap;
+    margin-top:18px;
+    font-size:12px;
+    color:var(--muted);
+  }
+  .legend .dot{
+    display:inline-block;
+    width:10px;
+    height:10px;
+    border-radius:3px;
+    margin-right:6px;
+    vertical-align:-1px;
+  }
+  .code-panel{
+    font-family:'JetBrains Mono',monospace;
+    font-size:13px;
+    line-height:1.9;
+    background:#0D1526;
+    border:1px solid var(--line);
+    border-radius:10px;
+    padding:16px 20px;
+  }
+  .code-line{
+    color:var(--muted);
+    padding:2px 8px;
+    border-radius:4px;
+    white-space:pre;
+  }
+  .code-line.active{
+    background:#28365A;
+    color:var(--text);
+  }
+  .desc-panel{
+    font-size:14px;
+    color:var(--text);
+    min-height:22px;
+    margin-bottom:4px;
+  }
+  .desc-panel .depth-tag{
+    font-family:'JetBrains Mono',monospace;
+    font-size:12px;
+    color:var(--muted);
+    margin-left:8px;
+  }
+  @media (max-width:600px){
+    .bars{height:200px;}
+    .bar{max-width:22px;}
+    .bar span, .bar .tag{font-size:9px;}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Quick Sort 动态演示</h1>
+  <p class="sub">随机选 pivot → partition 归位 → 递归左右两半。橙色 = pivot,青色 = 正在比较,绿色 = 已归位。</p>
+
+  <div class="panel">
+    <div class="desc-panel" id="desc">点击 "开始 / 下一步" 开始演示<span class="depth-tag" id="depthTag"></span></div>
+    <div class="bars" id="bars"></div>
+    <div class="track-wrap">
+      <div class="track"><div class="track-active" id="trackActive"></div></div>
+      <div class="track-label" id="trackLabel">区间 [0, n-1]</div>
+    </div>
+    <div class="legend">
+      <span><span class="dot" style="background:var(--pivot)"></span>pivot</span>
+      <span><span class="dot" style="background:var(--compare)"></span>正在比较</span>
+      <span><span class="dot" style="background:var(--sorted)"></span>已归位</span>
+      <span><span class="dot" style="background:var(--bar)"></span>待处理</span>
+      <span><span class="dot" style="background:var(--bar-dim)"></span>区间之外</span>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="controls">
+      <button class="primary" id="playBtn">▶ 播放</button>
+      <button id="stepBtn">下一步</button>
+      <button id="prevBtn">上一步</button>
+      <button id="resetBtn">重置</button>
+      <button id="newArrBtn">换一组数据</button>
+      <div class="slider-group">
+        速度
+        <input type="range" id="speedSlider" min="1" max="3" value="2" step="1">
+      </div>
+      <div class="slider-group">
+        数量
+        <input type="range" id="sizeSlider" min="8" max="24" value="14" step="1">
+        <span id="sizeLabel">14</span>
+      </div>
+    </div>
+    <div class="stats">
+      <div class="stat"><span class="num" id="stepNum">0 / 0</span><span class="label">步骤</span></div>
+      <div class="stat"><span class="num" id="compareNum">0</span><span class="label">比较次数</span></div>
+      <div class="stat"><span class="num" id="swapNum">0</span><span class="label">交换次数</span></div>
+      <div class="stat"><span class="num" id="sortedNum">0</span><span class="label">已归位</span></div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="code-panel" id="codePanel"></div>
+  </div>
+</div>
+
+<script>
+const CODE_LINES = [
+  "function quickSort(lo, hi):",
+  "  if lo >= hi: return",
+  "  pivot = randomIndex(lo, hi); swap(pivot, hi)",
+  "  i = lo - 1",
+  "  for j = lo to hi-1:",
+  "    if a[j] < a[hi]: i++; swap(i, j)",
+  "  swap(i+1, hi)   // pivot 归位",
+  "  quickSort(lo, i)",
+  "  quickSort(i+2, hi)"
+];
+
+const DEPTH_COLORS = ["#FFB454","#5EEAD4","#F472B6","#A78BFA","#34D399","#F87171"];
+
+let array = [];
+let steps = [];
+let currentStep = -1;
+let playing = false;
+let playTimer = null;
+
+function randomArray(n){
+  const set = new Set();
+  while(set.size < n){
+    set.add(5 + Math.floor(Math.random()*90));
+  }
+  return Array.from(set);
+}
+
+function* qsGen(arr){
+  const a = arr.slice();
+  function* qs(lo, hi, depth){
+    if(lo > hi) return;
+    if(lo === hi){
+      yield {a:a.slice(), type:'placed', idx:[lo], lo, hi, depth, line:1};
+      return;
+    }
+    yield {a:a.slice(), type:'range', idx:[], lo, hi, depth, line:0};
+    const p = lo + Math.floor(Math.random()*(hi-lo+1));
+    yield {a:a.slice(), type:'pivot', idx:[p], lo, hi, depth, line:2};
+    if(p !== hi){
+      [a[p],a[hi]] = [a[hi],a[p]];
+      yield {a:a.slice(), type:'swap', kind:'pivotSwap', idx:[p,hi], lo, hi, depth, line:2};
+    }
+    const pivotVal = a[hi];
+    let i = lo - 1;
+    for(let j = lo; j < hi; j++){
+      yield {a:a.slice(), type:'compare', idx:[j,hi], lo, hi, depth, line:5};
+      if(a[j] < pivotVal){
+        i++;
+        if(i !== j){
+          [a[i],a[j]] = [a[j],a[i]];
+        }
+        yield {a:a.slice(), type:'swap', kind:'loopSwap', idx:[i,j], lo, hi, depth, line:5};
+      }
+    }
+    [a[i+1],a[hi]] = [a[hi],a[i+1]];
+    yield {a:a.slice(), type:'swap', kind:'placeSwap', idx:[i+1,hi], lo, hi, depth, line:6};
+    yield {a:a.slice(), type:'placed', idx:[i+1], lo, hi, depth, line:6};
+    yield {a:a.slice(), type:'recurseLeft', idx:[], lo, hi:i, depth:depth+1, line:7};
+    yield* qs(lo, i, depth+1);
+    yield {a:a.slice(), type:'recurseRight', idx:[], lo:i+2, hi, depth:depth+1, line:8};
+    yield* qs(i+2, hi, depth+1);
+  }
+  yield {a:a.slice(), type:'start', idx:[], lo:0, hi:a.length-1, depth:0, line:0};
+  yield* qs(0, a.length-1, 0);
+  yield {a:a.slice(), type:'done', idx:[], lo:0, hi:a.length-1, depth:0, line:-1};
+}
+
+function buildSteps(arr){
+  const gen = qsGen(arr);
+  const out = [];
+  for(const s of gen) out.push(s);
+  return out;
+}
+
+function descFor(step){
+  if(!step) return "点击 \"开始 / 下一步\" 开始演示";
+  switch(step.type){
+    case 'start': return "开始对整个数组做 quickSort";
+    case 'range': return `处理区间 [${step.lo}, ${step.hi}]`;
+    case 'pivot': return `随机选中下标 ${step.idx[0]} 作为 pivot`;
+    case 'swap':
+      if(step.kind === 'pivotSwap') return `把 pivot 换到区间末尾(下标 ${step.idx[1]})`;
+      if(step.kind === 'loopSwap') return `a[${step.idx[0]}] 比 pivot 小,和 a[${step.idx[1]}] 交换`;
+      if(step.kind === 'placeSwap') return `把 pivot 换到最终位置 ${step.idx[0]}`;
+      return "交换";
+    case 'compare': return `比较 a[${step.idx[0]}] 和 pivot`;
+    case 'placed': return `下标 ${step.idx[0]} 的元素归位,以后不再移动`;
+    case 'recurseLeft': return `递归处理左半区间 [${step.lo}, ${step.hi}]`;
+    case 'recurseRight': return `递归处理右半区间 [${step.lo}, ${step.hi}]`;
+    case 'done': return "全部归位,排序完成";
+    default: return "";
+  }
+}
+
+function sortedSetUpTo(index){
+  const set = new Set();
+  for(let k = 0; k <= index; k++){
+    const s = steps[k];
+    if(s.type === 'placed'){
+      s.idx.forEach(i => set.add(i));
+    }
+  }
+  return set;
+}
+
+function render(){
+  const step = currentStep >= 0 ? steps[currentStep] : null;
+  const arr = step ? step.a : array;
+  const n = arr.length;
+
+  const barsEl = document.getElementById('bars');
+  if(barsEl.children.length !== n){
+    barsEl.innerHTML = '';
+    for(let i = 0; i < n; i++){
+      const bar = document.createElement('div');
+      bar.className = 'bar';
+      bar.innerHTML = `<span></span><div class="tag"></div>`;
+      barsEl.appendChild(bar);
+    }
+  }
+
+  const maxV = Math.max(...arr);
+  const sortedSet = step ? sortedSetUpTo(currentStep) : new Set();
+
+  for(let i = 0; i < n; i++){
+    const bar = barsEl.children[i];
+    const val = arr[i];
+    bar.style.height = (val / maxV * 220 + 20) + 'px';
+    bar.querySelector('span').textContent = val;
+    const tag = bar.querySelector('.tag');
+    tag.textContent = '';
+    tag.style.color = 'var(--muted)';
+
+    let inRange = true;
+    if(step && step.type !== 'done' && step.lo !== undefined){
+      inRange = i >= step.lo && i <= step.hi;
+    }
+
+    let bg = inRange ? 'var(--bar)' : 'var(--bar-dim)';
+    let opacity = inRange ? '1' : '0.35';
+
+    if(sortedSet.has(i)){
+      bg = 'var(--sorted)';
+      opacity = '1';
+    }
+
+    if(step && inRange){
+      if(step.type === 'pivot' && step.idx.includes(i)){
+        bg = 'var(--pivot)'; tag.textContent = 'P'; tag.style.color = 'var(--pivot)';
+      }
+      if(step.type === 'swap' && step.kind === 'pivotSwap' && step.idx.includes(i)){
+        bg = 'var(--pivot)';
+      }
+      if(step.type === 'compare' && step.idx.includes(i)){
+        bg = i === step.idx[1] ? 'var(--pivot)' : 'var(--compare)';
+        if(i === step.idx[0]){ tag.textContent = 'j'; tag.style.color = 'var(--compare)'; }
+      }
+      if(step.type === 'swap' && step.kind === 'loopSwap' && step.idx.includes(i)){
+        bg = 'var(--compare)';
+      }
+      if(step.type === 'swap' && step.kind === 'placeSwap' && step.idx.includes(i)){
+        bg = 'var(--pivot)';
+      }
+      if(step.type === 'placed' && step.idx.includes(i)){
+        bg = 'var(--sorted)';
+      }
+    }
+
+    bar.style.background = bg;
+    bar.style.opacity = opacity;
+  }
+
+  const trackActive = document.getElementById('trackActive');
+  const trackLabel = document.getElementById('trackLabel');
+  if(step && step.type !== 'done' && step.lo !== undefined && step.hi !== undefined && step.hi >= step.lo){
+    const left = (step.lo / n) * 100;
+    const width = ((step.hi - step.lo + 1) / n) * 100;
+    trackActive.style.left = left + '%';
+    trackActive.style.width = width + '%';
+    trackActive.style.background = DEPTH_COLORS[step.depth % DEPTH_COLORS.length];
+    trackLabel.textContent = `区间 [${step.lo}, ${step.hi}]  ·  递归深度 ${step.depth}`;
+  } else if(step && step.type === 'done'){
+    trackActive.style.left = '0%';
+    trackActive.style.width = '100%';
+    trackActive.style.background = 'var(--sorted)';
+    trackLabel.textContent = '排序完成';
+  } else {
+    trackActive.style.width = '0%';
+    trackLabel.textContent = `区间 [0, ${n-1}]`;
+  }
+
+  document.getElementById('desc').innerHTML = descFor(step) +
+    (step ? `<span class="depth-tag">深度 ${step.depth}</span>` : '');
+
+  const codePanel = document.getElementById('codePanel');
+  codePanel.innerHTML = CODE_LINES.map((line, idx) => {
+    const active = step && step.line === idx;
+    return `<div class="code-line${active ? ' active' : ''}">${escapeHtml(line)}</div>`;
+  }).join('');
+
+  document.getElementById('stepNum').textContent = `${Math.max(currentStep+1,0)} / ${steps.length}`;
+
+  let compares = 0, swaps = 0;
+  for(let k = 0; k <= currentStep; k++){
+    if(steps[k].type === 'compare') compares++;
+    if(steps[k].type === 'swap') swaps++;
+  }
+  document.getElementById('compareNum').textContent = compares;
+  document.getElementById('swapNum').textContent = swaps;
+  document.getElementById('sortedNum').textContent = sortedSet.size;
+
+  document.getElementById('prevBtn').disabled = currentStep <= 0;
+  document.getElementById('stepBtn').disabled = currentStep >= steps.length - 1;
+}
+
+function escapeHtml(s){
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+function stepForward(){
+  if(currentStep < steps.length - 1){
+    currentStep++;
+    render();
+  } else {
+    stopPlaying();
+  }
+}
+function stepBack(){
+  if(currentStep > 0){
+    currentStep--;
+    render();
+  }
+}
+
+function speedMs(){
+  const v = parseInt(document.getElementById('speedSlider').value);
+  return {1:900, 2:450, 3:180}[v];
+}
+
+function startPlaying(){
+  if(currentStep >= steps.length - 1) currentStep = -1;
+  playing = true;
+  document.getElementById('playBtn').textContent = '⏸ 暂停';
+  playTimer = setInterval(() => {
+    if(currentStep >= steps.length - 1){
+      stopPlaying();
+      return;
+    }
+    stepForward();
+  }, speedMs());
+}
+function stopPlaying(){
+  playing = false;
+  document.getElementById('playBtn').textContent = '▶ 播放';
+  clearInterval(playTimer);
+}
+
+function newArray(){
+  stopPlaying();
+  const n = parseInt(document.getElementById('sizeSlider').value);
+  array = randomArray(n);
+  steps = buildSteps(array);
+  currentStep = -1;
+  render();
+}
+
+function reset(){
+  stopPlaying();
+  currentStep = -1;
+  render();
+}
+
+document.getElementById('playBtn').addEventListener('click', () => {
+  playing ? stopPlaying() : startPlaying();
+});
+document.getElementById('stepBtn').addEventListener('click', () => { stopPlaying(); stepForward(); });
+document.getElementById('prevBtn').addEventListener('click', () => { stopPlaying(); stepBack(); });
+document.getElementById('resetBtn').addEventListener('click', reset);
+document.getElementById('newArrBtn').addEventListener('click', newArray);
+document.getElementById('speedSlider').addEventListener('input', () => {
+  if(playing){ stopPlaying(); startPlaying(); }
+});
+document.getElementById('sizeSlider').addEventListener('input', (e) => {
+  document.getElementById('sizeLabel').textContent = e.target.value;
+});
+document.getElementById('sizeSlider').addEventListener('change', newArray);
+
+newArray();
+</script>
+</body>
+</html>
