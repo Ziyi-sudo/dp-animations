@@ -1,0 +1,435 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>双指针 Partition 可视化</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#0B1220;
+    --panel:#121B2E;
+    --panel-2:#17223A;
+    --line:#233252;
+    --text:#E7ECF6;
+    --muted:#8592AD;
+    --pivot:#FFB454;
+    --left-p:#5EEAD4;
+    --right-p:#F472B6;
+    --swap:#F87171;
+    --settled:#34D399;
+    --bar:#2C3B5C;
+    --bar-dim:#1C2740;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    background:var(--bg);
+    color:var(--text);
+    font-family:'Inter',sans-serif;
+    padding:32px 20px 60px;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+  }
+  .wrap{width:100%;max-width:920px;}
+  h1{
+    font-family:'Space Grotesk',sans-serif;
+    font-weight:700;
+    font-size:26px;
+    margin:0 0 4px;
+    letter-spacing:-0.02em;
+  }
+  .sub{color:var(--muted);font-size:14px;margin:0 0 28px;}
+  .panel{
+    background:var(--panel);
+    border:1px solid var(--line);
+    border-radius:14px;
+    padding:24px;
+    margin-bottom:20px;
+  }
+  .bars{
+    display:flex;
+    align-items:flex-end;
+    justify-content:center;
+    gap:6px;
+    height:220px;
+    padding:0 4px;
+    position:relative;
+  }
+  .bar{
+    flex:1;
+    max-width:48px;
+    border-radius:4px 4px 0 0;
+    background:var(--bar);
+    position:relative;
+    transition:background 0.15s ease, opacity 0.15s ease, transform 0.2s ease;
+    display:flex;
+    align-items:flex-start;
+    justify-content:center;
+  }
+  .bar span{
+    position:absolute;
+    top:-22px;
+    font-family:'JetBrains Mono',monospace;
+    font-size:12px;
+    color:var(--muted);
+  }
+  .bar .tag{
+    position:absolute;
+    bottom:-26px;
+    font-family:'JetBrains Mono',monospace;
+    font-size:12px;
+    font-weight:600;
+    white-space:nowrap;
+  }
+  .desc-panel{
+    font-size:14px;
+    color:var(--text);
+    min-height:22px;
+    margin-bottom:28px;
+  }
+  .controls{
+    display:flex;
+    flex-wrap:wrap;
+    align-items:center;
+    gap:14px;
+    margin-bottom:20px;
+  }
+  button{
+    background:var(--panel-2);
+    color:var(--text);
+    border:1px solid var(--line);
+    border-radius:8px;
+    padding:9px 16px;
+    font-family:'Inter',sans-serif;
+    font-size:13px;
+    font-weight:500;
+    cursor:pointer;
+    transition:background 0.15s ease, border-color 0.15s ease;
+  }
+  button:hover{background:#1D2B47;border-color:#334369;}
+  button:active{transform:scale(0.97);}
+  button.primary{background:var(--pivot);color:#33220A;border-color:var(--pivot);}
+  button.primary:hover{background:#FFC578;}
+  button:disabled{opacity:0.4;cursor:not-allowed;}
+  .slider-group{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--muted);}
+  input[type=range]{accent-color:var(--pivot);}
+  .stats{display:flex;gap:24px;flex-wrap:wrap;}
+  .stat{display:flex;flex-direction:column;gap:2px;}
+  .stat .num{font-family:'JetBrains Mono',monospace;font-size:20px;font-weight:500;}
+  .stat .label{font-size:12px;color:var(--muted);}
+  .legend{display:flex;gap:16px;flex-wrap:wrap;margin-top:32px;font-size:12px;color:var(--muted);}
+  .legend .dot{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:6px;vertical-align:-1px;}
+  .code-panel{
+    font-family:'JetBrains Mono',monospace;
+    font-size:13px;
+    line-height:1.9;
+    background:#0D1526;
+    border:1px solid var(--line);
+    border-radius:10px;
+    padding:16px 20px;
+  }
+  .code-line{color:var(--muted);padding:2px 8px;border-radius:4px;white-space:pre;}
+  .code-line.active{background:#28365A;color:var(--text);}
+  @media (max-width:600px){
+    .bars{height:170px;}
+    .bar{max-width:26px;}
+    .bar span, .bar .tag{font-size:9px;}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>双指针 Partition 演示(老师版)</h1>
+  <p class="sub">leftBound 从左往右找"站错的大数",rightBound 从右往左找"站错的小数",两者都站错才交换 —— 能不动就不动。</p>
+
+  <div class="panel">
+    <div class="desc-panel" id="desc">点击 "开始 / 下一步" 开始演示</div>
+    <div class="bars" id="bars"></div>
+    <div class="legend">
+      <span><span class="dot" style="background:var(--pivot)"></span>pivot</span>
+      <span><span class="dot" style="background:var(--left-p)"></span>leftBound</span>
+      <span><span class="dot" style="background:var(--right-p)"></span>rightBound</span>
+      <span><span class="dot" style="background:var(--swap)"></span>正在交换</span>
+      <span><span class="dot" style="background:var(--settled)"></span>已确认位置</span>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="controls">
+      <button class="primary" id="playBtn">▶ 播放</button>
+      <button id="stepBtn">下一步</button>
+      <button id="prevBtn">上一步</button>
+      <button id="resetBtn">重置</button>
+      <button id="newArrBtn">换一组数据</button>
+      <div class="slider-group">
+        速度
+        <input type="range" id="speedSlider" min="1" max="3" value="2" step="1">
+      </div>
+      <div class="slider-group">
+        数量
+        <input type="range" id="sizeSlider" min="7" max="16" value="10" step="1">
+        <span id="sizeLabel">10</span>
+      </div>
+    </div>
+    <div class="stats">
+      <div class="stat"><span class="num" id="stepNum">0 / 0</span><span class="label">步骤</span></div>
+      <div class="stat"><span class="num" id="swapNum">0</span><span class="label">交换次数</span></div>
+      <div class="stat"><span class="num" id="skipNum">0</span><span class="label">跳过次数(不用动)</span></div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="code-panel" id="codePanel"></div>
+  </div>
+</div>
+
+<script>
+const CODE_LINES = [
+  "partition(left, right):",
+  "  pivot = array[pivotIndex]; swap(pivotIndex, right)",
+  "  leftBound = left; rightBound = right - 1",
+  "  while leftBound <= rightBound:",
+  "    if array[leftBound] < pivot: leftBound++",
+  "    else if array[rightBound] >= pivot: rightBound--",
+  "    else: swap(leftBound++, rightBound--)",
+  "  swap(leftBound, right)",
+  "  return leftBound"
+];
+
+let array = [];
+let steps = [];
+let currentStep = -1;
+let playing = false;
+let playTimer = null;
+
+function randomArray(n){
+  const set = new Set();
+  while(set.size < n){
+    set.add(5 + Math.floor(Math.random()*90));
+  }
+  return Array.from(set);
+}
+
+function buildSteps(arr){
+  const a = arr.slice();
+  const out = [];
+  const n = a.length;
+  const left = 0, right = n - 1;
+
+  const pivotIndex = left + Math.floor(Math.random()*(right-left+1));
+  const pivot = a[pivotIndex];
+  out.push({a:a.slice(), type:'start', pivot, line:0});
+
+  if(pivotIndex !== right){
+    [a[pivotIndex], a[right]] = [a[right], a[pivotIndex]];
+  }
+  out.push({a:a.slice(), type:'pivotSwap', idx:[pivotIndex, right], pivot, leftBound:left, rightBound:right-1, line:1});
+
+  let leftBound = left, rightBound = right - 1;
+  out.push({a:a.slice(), type:'init', pivot, leftBound, rightBound, line:2});
+
+  while(leftBound <= rightBound){
+    out.push({a:a.slice(), type:'checkLeft', pivot, leftBound, rightBound, line:4});
+    if(a[leftBound] < pivot){
+      leftBound++;
+      out.push({a:a.slice(), type:'skipLeft', pivot, leftBound, rightBound, line:4});
+    } else {
+      out.push({a:a.slice(), type:'checkRight', pivot, leftBound, rightBound, line:5});
+      if(a[rightBound] >= pivot){
+        rightBound--;
+        out.push({a:a.slice(), type:'skipRight', pivot, leftBound, rightBound, line:5});
+      } else {
+        out.push({a:a.slice(), type:'swapPair', pivot, leftBound, rightBound, line:6});
+        [a[leftBound], a[rightBound]] = [a[rightBound], a[leftBound]];
+        leftBound++; rightBound--;
+        out.push({a:a.slice(), type:'afterSwap', pivot, leftBound, rightBound, line:6});
+      }
+    }
+  }
+
+  [a[leftBound], a[right]] = [a[right], a[leftBound]];
+  out.push({a:a.slice(), type:'pivotFinal', pivot, idx:[leftBound], line:7});
+  out.push({a:a.slice(), type:'done', pivot, idx:[leftBound], line:8});
+
+  return out;
+}
+
+function descFor(step){
+  if(!step) return "点击 \"开始 / 下一步\" 开始演示";
+  switch(step.type){
+    case 'start': return `随机选中 pivot = ${step.pivot}`;
+    case 'pivotSwap': return `把 pivot 换到区间最右侧`;
+    case 'init': return `leftBound 从左端出发,rightBound 从右端(pivot前一位)出发`;
+    case 'checkLeft': return `检查 a[leftBound]:是否比 pivot 小?`;
+    case 'skipLeft': return `a[leftBound] 本来就该在左边,不用动,leftBound++`;
+    case 'checkRight': return `a[leftBound] 站错了,再检查 a[rightBound]:是否 >= pivot?`;
+    case 'skipRight': return `a[rightBound] 本来就该在右边,不用动,rightBound--`;
+    case 'swapPair': return `两边都站错了!交换 a[leftBound] 和 a[rightBound]`;
+    case 'afterSwap': return `交换完成,leftBound++,rightBound--,继续往中间夹`;
+    case 'pivotFinal': return `leftBound 和 rightBound 相遇,把 pivot 换到 leftBound 位置`;
+    case 'done': return `partition 完成,pivot 已归位,不会再移动`;
+    default: return '';
+  }
+}
+
+function render(){
+  const step = currentStep >= 0 ? steps[currentStep] : null;
+  const arr = step ? step.a : array;
+  const n = arr.length;
+
+  const barsEl = document.getElementById('bars');
+  if(barsEl.children.length !== n){
+    barsEl.innerHTML = '';
+    for(let i = 0; i < n; i++){
+      const bar = document.createElement('div');
+      bar.className = 'bar';
+      bar.innerHTML = `<span></span><div class="tag"></div>`;
+      barsEl.appendChild(bar);
+    }
+  }
+
+  const maxV = Math.max(...arr);
+
+  for(let i = 0; i < n; i++){
+    const bar = barsEl.children[i];
+    const val = arr[i];
+    bar.style.height = (val / maxV * 180 + 20) + 'px';
+    bar.querySelector('span').textContent = val;
+    const tag = bar.querySelector('.tag');
+    tag.textContent = '';
+
+    let bg = 'var(--bar)';
+
+    if(step){
+      const isRightEdge = (i === n - 1) && step.type !== 'pivotFinal' && step.type !== 'done';
+      if(isRightEdge){
+        bg = 'var(--pivot)';
+        tag.textContent = 'pivot';
+        tag.style.color = 'var(--pivot)';
+      }
+      if(step.type === 'done' || step.type === 'pivotFinal'){
+        if(step.idx && step.idx.includes(i)){
+          bg = 'var(--settled)';
+          tag.textContent = 'pivot 归位';
+          tag.style.color = 'var(--settled)';
+        }
+      }
+      if(step.leftBound !== undefined && i === step.leftBound && step.type !== 'pivotFinal' && step.type !== 'done'){
+        bg = (step.type === 'swapPair' || step.type === 'afterSwap') ? 'var(--swap)' : 'var(--left-p)';
+        tag.textContent = 'L';
+        tag.style.color = 'var(--left-p)';
+      }
+      if(step.rightBound !== undefined && i === step.rightBound && step.type !== 'pivotFinal' && step.type !== 'done'){
+        bg = (step.type === 'swapPair') ? 'var(--swap)' : 'var(--right-p)';
+        tag.textContent = tag.textContent ? tag.textContent + ' / R' : 'R';
+        tag.style.color = 'var(--right-p)';
+      }
+      if(step.type === 'pivotSwap' && step.idx && step.idx.includes(i)){
+        bg = 'var(--pivot)';
+      }
+    }
+
+    bar.style.background = bg;
+  }
+
+  document.getElementById('desc').textContent = descFor(step);
+
+  const codePanel = document.getElementById('codePanel');
+  codePanel.innerHTML = CODE_LINES.map((line, idx) => {
+    const active = step && step.line === idx;
+    return `<div class="code-line${active ? ' active' : ''}">${escapeHtml(line)}</div>`;
+  }).join('');
+
+  document.getElementById('stepNum').textContent = `${Math.max(currentStep+1,0)} / ${steps.length}`;
+
+  let swaps = 0, skips = 0;
+  for(let k = 0; k <= currentStep; k++){
+    if(steps[k].type === 'swapPair') swaps++;
+    if(steps[k].type === 'skipLeft' || steps[k].type === 'skipRight') skips++;
+  }
+  document.getElementById('swapNum').textContent = swaps;
+  document.getElementById('skipNum').textContent = skips;
+
+  document.getElementById('prevBtn').disabled = currentStep <= 0;
+  document.getElementById('stepBtn').disabled = currentStep >= steps.length - 1;
+}
+
+function escapeHtml(s){
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+function stepForward(){
+  if(currentStep < steps.length - 1){
+    currentStep++;
+    render();
+  } else {
+    stopPlaying();
+  }
+}
+function stepBack(){
+  if(currentStep > 0){
+    currentStep--;
+    render();
+  }
+}
+
+function speedMs(){
+  const v = parseInt(document.getElementById('speedSlider').value);
+  return {1:1100, 2:600, 3:280}[v];
+}
+
+function startPlaying(){
+  if(currentStep >= steps.length - 1) currentStep = -1;
+  playing = true;
+  document.getElementById('playBtn').textContent = '⏸ 暂停';
+  playTimer = setInterval(() => {
+    if(currentStep >= steps.length - 1){
+      stopPlaying();
+      return;
+    }
+    stepForward();
+  }, speedMs());
+}
+function stopPlaying(){
+  playing = false;
+  document.getElementById('playBtn').textContent = '▶ 播放';
+  clearInterval(playTimer);
+}
+
+function newArray(){
+  stopPlaying();
+  const n = parseInt(document.getElementById('sizeSlider').value);
+  array = randomArray(n);
+  steps = buildSteps(array);
+  currentStep = -1;
+  render();
+}
+
+function reset(){
+  stopPlaying();
+  currentStep = -1;
+  render();
+}
+
+document.getElementById('playBtn').addEventListener('click', () => {
+  playing ? stopPlaying() : startPlaying();
+});
+document.getElementById('stepBtn').addEventListener('click', () => { stopPlaying(); stepForward(); });
+document.getElementById('prevBtn').addEventListener('click', () => { stopPlaying(); stepBack(); });
+document.getElementById('resetBtn').addEventListener('click', reset);
+document.getElementById('newArrBtn').addEventListener('click', newArray);
+document.getElementById('speedSlider').addEventListener('input', () => {
+  if(playing){ stopPlaying(); startPlaying(); }
+});
+document.getElementById('sizeSlider').addEventListener('input', (e) => {
+  document.getElementById('sizeLabel').textContent = e.target.value;
+});
+document.getElementById('sizeSlider').addEventListener('change', newArray);
+
+newArray();
+</script>
+</body>
+</html>
