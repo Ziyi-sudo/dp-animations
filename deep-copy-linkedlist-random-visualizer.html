@@ -1,0 +1,489 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Deep Copy Linked List With Random Pointer 可视化</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#0B1220;
+    --panel:#121B2E;
+    --panel-2:#17223A;
+    --line:#233252;
+    --text:#E7ECF6;
+    --muted:#8592AD;
+    --head:#FFB454;
+    --target:#F472B6;
+    --cur:#5EEAD4;
+    --found:#34D399;
+    --box:#1C2740;
+    --box-empty:#141C30;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    background:var(--bg);
+    color:var(--text);
+    font-family:'Inter',sans-serif;
+    padding:32px 20px 60px;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+  }
+  .wrap{width:100%;max-width:1000px;}
+  h1{
+    font-family:'Space Grotesk',sans-serif;
+    font-weight:700;
+    font-size:26px;
+    margin:0 0 4px;
+    letter-spacing:-0.02em;
+  }
+  .sub{color:var(--muted);font-size:14px;margin:0 0 24px;}
+  .panel{
+    background:var(--panel);
+    border:1px solid var(--line);
+    border-radius:14px;
+    padding:24px;
+    margin-bottom:20px;
+    overflow-x:auto;
+  }
+  .desc-panel{
+    font-size:14px;
+    color:var(--text);
+    min-height:22px;
+    margin-bottom:14px;
+  }
+  svg{display:block;margin:0 auto;}
+  .node-label{font-family:'JetBrains Mono',monospace;font-size:13px;fill:var(--text);font-weight:600;}
+  .node-sub{font-family:'JetBrains Mono',monospace;font-size:10px;fill:var(--muted);}
+  .row-label{font-family:'Inter',sans-serif;font-size:12px;fill:var(--muted);}
+  .map-panel{
+    display:flex;
+    flex-wrap:wrap;
+    gap:8px;
+    min-height:32px;
+    margin-top:6px;
+  }
+  .map-chip{
+    font-family:'JetBrains Mono',monospace;
+    font-size:12px;
+    background:#17233d;
+    border:1px solid var(--line);
+    color:var(--cur);
+    padding:5px 10px;
+    border-radius:16px;
+  }
+  .empty-note{color:var(--muted);font-size:13px;}
+  .controls{
+    display:flex;
+    flex-wrap:wrap;
+    align-items:center;
+    gap:14px;
+    margin-bottom:20px;
+  }
+  button{
+    background:var(--panel-2);
+    color:var(--text);
+    border:1px solid var(--line);
+    border-radius:8px;
+    padding:9px 16px;
+    font-family:'Inter',sans-serif;
+    font-size:13px;
+    font-weight:500;
+    cursor:pointer;
+    transition:background 0.15s ease, border-color 0.15s ease;
+  }
+  button:hover{background:#1D2B47;border-color:#334369;}
+  button:active{transform:scale(0.97);}
+  button.primary{background:var(--head);color:#33220A;border-color:var(--head);}
+  button.primary:hover{background:#FFC578;}
+  button:disabled{opacity:0.4;cursor:not-allowed;}
+  .slider-group{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--muted);}
+  input[type=range]{accent-color:var(--head);}
+  .legend{display:flex;gap:16px;flex-wrap:wrap;margin-top:14px;font-size:12px;color:var(--muted);}
+  .legend .dot{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:6px;vertical-align:-1px;}
+  .stats{display:flex;gap:24px;flex-wrap:wrap;}
+  .stat{display:flex;flex-direction:column;gap:2px;}
+  .stat .num{font-family:'JetBrains Mono',monospace;font-size:20px;font-weight:500;}
+  .stat .label{font-size:12px;color:var(--muted);}
+  .code-panel{
+    font-family:'JetBrains Mono',monospace;
+    font-size:13px;
+    line-height:1.9;
+    background:#0D1526;
+    border:1px solid var(--line);
+    border-radius:10px;
+    padding:16px 20px;
+  }
+  .code-line{color:var(--muted);padding:2px 8px;border-radius:4px;white-space:pre;}
+  .code-line.active{background:#28365A;color:var(--text);}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Deep Copy Linked List With Random Pointer</h1>
+  <p class="sub">单次遍历,边建新节点边用 HashMap 记录"原节点→新节点"的映射;random 指向还没访问到的节点时,会被提前创建好放进 map。</p>
+
+  <div class="panel">
+    <div class="desc-panel" id="desc">点击 "开始 / 下一步" 开始演示</div>
+    <svg id="svgCanvas" viewBox="0 0 900 430" width="100%"></svg>
+    <div class="legend">
+      <span><span class="dot" style="background:var(--head)"></span>当前 head</span>
+      <span><span class="dot" style="background:var(--target)"></span>random 目标</span>
+      <span><span class="dot" style="background:var(--cur)"></span>cur(新链表指针)</span>
+      <span><span class="dot" style="background:var(--found)"></span>已连接完成</span>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="desc-panel" style="margin-bottom:4px;">HashMap(原节点 → 新节点)</div>
+    <div class="map-panel" id="mapPanel"><span class="empty-note">还没有记录</span></div>
+  </div>
+
+  <div class="panel">
+    <div class="controls">
+      <button class="primary" id="playBtn">▶ 播放</button>
+      <button id="stepBtn">下一步</button>
+      <button id="prevBtn">上一步</button>
+      <button id="resetBtn">重置</button>
+      <button id="newArrBtn">换一组 random 指针</button>
+      <div class="slider-group">
+        速度
+        <input type="range" id="speedSlider" min="1" max="3" value="2" step="1">
+      </div>
+    </div>
+    <div class="stats">
+      <div class="stat"><span class="num" id="stepNum">0 / 0</span><span class="label">步骤</span></div>
+      <div class="stat"><span class="num" id="createdNum">0</span><span class="label">已创建的新节点</span></div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="code-panel" id="codePanel"></div>
+  </div>
+</div>
+
+<script>
+const CODE_LINES = [
+  "for each head in original list:",
+  "  if !map.containsKey(head): map.put(head, new Node(head.value))",
+  "  cur.next = map.get(head)",
+  "  if head.random != null:",
+  "    if !map.containsKey(head.random): map.put(head.random, new Node(...))",
+  "    cur.next.random = map.get(head.random)",
+  "  head = head.next; cur = cur.next"
+];
+
+const VALUES = [12, 47, 8, 63, 29, 5];
+const N = VALUES.length;
+
+let randomTarget = [];
+let steps = [];
+let currentStep = -1;
+let playing = false;
+let playTimer = null;
+
+const colWidth = 130;
+const startX = 70;
+const boxW = 90, boxH = 54;
+const topY = 70, bottomY = 320;
+
+function xAt(i){ return startX + i*colWidth; }
+
+function randomTargets(){
+  const arr = [];
+  for(let i=0;i<N;i++){
+    if(Math.random() < 0.35){
+      arr.push(-1);
+    } else {
+      let j = Math.floor(Math.random()*N);
+      arr.push(j);
+    }
+  }
+  if(arr.every(v=>v===-1)) arr[0] = 1 % N;
+  return arr;
+}
+
+function buildSteps(){
+  const out = [];
+  const created = new Array(N).fill(false);
+  let curIndex = -1;
+  for(let i=0;i<N;i++){
+    out.push({type:'visitHead', i, created: created.slice(), line:0});
+
+    let createdNow = false;
+    if(!created[i]){ created[i]=true; createdNow=true; }
+    out.push({type:'ensureHeadCopy', i, createdNow, created: created.slice(), line:1});
+
+    out.push({type:'connectNext', i, prevCur: curIndex, created: created.slice(), line:2});
+
+    if(randomTarget[i] !== -1){
+      const j = randomTarget[i];
+      out.push({type:'checkRandomTarget', i, j, created: created.slice(), line:3});
+      let createdNowR = false;
+      if(!created[j]){ created[j]=true; createdNowR=true; }
+      out.push({type:'ensureRandomCopy', i, j, createdNow:createdNowR, created: created.slice(), line:4});
+      out.push({type:'connectRandom', i, j, created: created.slice(), line:5});
+    }
+
+    curIndex = i;
+    out.push({type:'advance', i, curIndex, created: created.slice(), line:6});
+  }
+  out.push({type:'done', created: created.slice()});
+  return out;
+}
+
+function descFor(step){
+  if(!step) return "点击 \"开始 / 下一步\" 开始演示";
+  switch(step.type){
+    case 'visitHead': return `原链表遍历到第 ${step.i} 个节点(head)`;
+    case 'ensureHeadCopy': return step.createdNow
+      ? `map 里没有这个原节点,新建一个拷贝节点,存入 map`
+      : `map 里已经有这个节点的拷贝了(之前被 random 提前创建过),直接复用`;
+    case 'connectNext': return `cur.next 指向这个节点的拷贝,新链表往后延伸一位`;
+    case 'checkRandomTarget': return `这个节点的 random 指向第 ${step.j} 个节点,去 map 里查它的拷贝`;
+    case 'ensureRandomCopy': return step.createdNow
+      ? `random 目标节点还没被创建过,提前新建一个拷贝存入 map`
+      : `random 目标节点的拷贝已经存在了,直接复用`;
+    case 'connectRandom': return `新节点的 random 指向目标节点的拷贝,两个新节点连起来了`;
+    case 'advance': return `head 和 cur 都往后移动一位,继续处理下一个原节点`;
+    case 'done': return `原链表遍历完毕,新链表(包括所有 random 指针)已经深拷贝完成`;
+    default: return '';
+  }
+}
+
+function svgEl(tag, attrs){
+  const el = document.createElementNS('http://www.w3.org/2000/svg', tag);
+  for(const k in attrs) el.setAttribute(k, attrs[k]);
+  return el;
+}
+
+function arcPath(x1,y1,x2,y2,up){
+  const dist = Math.abs(x2-x1);
+  const h = Math.min(30 + dist*0.22, 130);
+  const midX = (x1+x2)/2;
+  const midY = up ? y1 - h : y1 + h;
+  return `M${x1},${y1} Q${midX},${midY} ${x2},${y2}`;
+}
+
+function render(){
+  const step = currentStep >= 0 ? steps[currentStep] : null;
+  const created = step ? step.created : new Array(N).fill(false);
+  const curIndex = (step && step.curIndex !== undefined) ? step.curIndex
+                    : (step && step.prevCur !== undefined) ? step.prevCur
+                    : -1;
+
+  const svg = document.getElementById('svgCanvas');
+  svg.innerHTML = '';
+
+  const defs = svgEl('defs', {});
+  ['head','target','cur','found','muted'].forEach(name=>{
+    const color = {head:'#FFB454', target:'#F472B6', cur:'#5EEAD4', found:'#34D399', muted:'#48557a'}[name];
+    const marker = svgEl('marker', {id:'arrow-'+name, viewBox:'0 0 10 10', refX:'8', refY:'5', markerWidth:'6', markerHeight:'6', orient:'auto-start-reverse'});
+    const path = svgEl('path', {d:'M2 1L8 5L2 9', fill:'none', stroke:color, 'stroke-width':'1.6', 'stroke-linecap':'round', 'stroke-linejoin':'round'});
+    marker.appendChild(path);
+    defs.appendChild(marker);
+  });
+  svg.appendChild(defs);
+
+  svg.appendChild(svgEl('text', {x:20, y:topY-35, class:'row-label'})).textContent = '原链表';
+  svg.appendChild(svgEl('text', {x:20, y:bottomY-35, class:'row-label'})).textContent = '新链表(深拷贝)';
+
+  // top row next arrows (always shown, static structure)
+  for(let i=0;i<N-1;i++){
+    const x1 = xAt(i)+boxW, y1 = topY+boxH/2;
+    const x2 = xAt(i+1), y2 = topY+boxH/2;
+    svg.appendChild(svgEl('line', {x1,y1,x2,y2, stroke:'#48557a', 'stroke-width':'1.6', 'marker-end':'url(#arrow-muted)'}));
+  }
+
+  // top row random arcs (always shown, static data)
+  for(let i=0;i<N;i++){
+    if(randomTarget[i] === -1) continue;
+    const j = randomTarget[i];
+    const x1 = xAt(i)+boxW/2, y1 = topY;
+    const x2 = xAt(j)+boxW/2, y2 = topY;
+    const isActive = step && (step.type==='checkRandomTarget' || step.type==='ensureRandomCopy' || step.type==='connectRandom') && step.i===i;
+    const color = isActive ? 'var(--target)' : '#3a4a70';
+    const p = svgEl('path', {d:arcPath(x1,y1,x2,y2,true), fill:'none', stroke:color, 'stroke-width': isActive?'2.2':'1.3', 'marker-end': isActive?'url(#arrow-target)':'url(#arrow-muted)', opacity: isActive?'1':'0.55'});
+    svg.appendChild(p);
+  }
+
+  // top row boxes
+  for(let i=0;i<N;i++){
+    const x = xAt(i), y = topY;
+    let stroke = '#334369', fill='var(--box)';
+    if(step && step.type==='visitHead' && step.i===i){ stroke='var(--head)'; fill='#2b2312'; }
+    if(step && (step.type==='ensureHeadCopy'||step.type==='connectNext') && step.i===i){ stroke='var(--head)'; fill='#2b2312'; }
+    if(step && (step.type==='checkRandomTarget'||step.type==='ensureRandomCopy'||step.type==='connectRandom')){
+      if(step.i===i){ stroke='var(--head)'; fill='#2b2312'; }
+      if(step.j===i){ stroke='var(--target)'; fill='#3a1d2c'; }
+    }
+    if(step && step.type==='advance' && step.i===i){ stroke='var(--found)'; fill='#12281e'; }
+
+    const rect = svgEl('rect', {x, y, width:boxW, height:boxH, rx:8, fill, stroke, 'stroke-width':'1.6'});
+    svg.appendChild(rect);
+    const t1 = svgEl('text', {x:x+boxW/2, y:y+22, 'text-anchor':'middle', class:'node-label'});
+    t1.textContent = VALUES[i];
+    svg.appendChild(t1);
+    const t2 = svgEl('text', {x:x+boxW/2, y:y+40, 'text-anchor':'middle', class:'node-sub'});
+    t2.textContent = 'orig['+i+']';
+    svg.appendChild(t2);
+  }
+
+  // bottom row next arrows: sequential, revealed as connectNext/advance happens
+  let revealedUpTo = -1;
+  for(let k=0;k<=currentStep;k++){
+    if(steps[k].type==='advance') revealedUpTo = steps[k].i;
+  }
+  for(let i=0;i<revealedUpTo;i++){
+    const x1 = xAt(i)+boxW, y1 = bottomY+boxH/2;
+    const x2 = xAt(i+1), y2 = bottomY+boxH/2;
+    svg.appendChild(svgEl('line', {x1,y1,x2,y2, stroke:'var(--found)', 'stroke-width':'1.8', 'marker-end':'url(#arrow-found)'}));
+  }
+  // in-progress next arrow (current connectNext being drawn)
+  if(step && step.type==='connectNext' && step.prevCur >= 0){
+    const i = step.prevCur, j = step.i;
+    const x1 = xAt(i)+boxW, y1 = bottomY+boxH/2;
+    const x2 = xAt(j), y2 = bottomY+boxH/2;
+    svg.appendChild(svgEl('line', {x1,y1,x2,y2, stroke:'var(--cur)', 'stroke-width':'2.2', 'marker-end':'url(#arrow-cur)'}));
+  }
+
+  // bottom row random arcs: revealed as connectRandom happens
+  for(let k=0;k<=currentStep;k++){
+    const s = steps[k];
+    if(s.type==='connectRandom'){
+      const x1 = xAt(s.i)+boxW/2, y1 = bottomY+boxH;
+      const x2 = xAt(s.j)+boxW/2, y2 = bottomY+boxH;
+      const isActive = (step.type==='connectRandom' && step.i===s.i && step.j===s.j);
+      svg.appendChild(svgEl('path', {d:arcPath(x1,y1,x2,y2,false), fill:'none', stroke: isActive?'var(--cur)':'var(--found)', 'stroke-width': isActive?'2.2':'1.6', 'marker-end': isActive?'url(#arrow-cur)':'url(#arrow-found)'}));
+    }
+  }
+
+  // bottom row boxes
+  for(let i=0;i<N;i++){
+    const x = xAt(i), y = bottomY;
+    if(!created[i]){
+      const rect = svgEl('rect', {x, y, width:boxW, height:boxH, rx:8, fill:'var(--box-empty)', stroke:'#2a3650', 'stroke-width':'1.2', 'stroke-dasharray':'4 4'});
+      svg.appendChild(rect);
+      continue;
+    }
+    let stroke = '#334369', fill='var(--box)';
+    if(step && (step.type==='ensureHeadCopy'||step.type==='connectNext') && step.i===i){ stroke='var(--head)'; fill='#2b2312'; }
+    if(step && (step.type==='ensureRandomCopy'||step.type==='connectRandom') && step.j===i){ stroke='var(--target)'; fill='#3a1d2c'; }
+    if(step && step.type==='advance' && step.i===i){ stroke='var(--found)'; fill='#12281e'; }
+    const rect = svgEl('rect', {x, y, width:boxW, height:boxH, rx:8, fill, stroke, 'stroke-width':'1.6'});
+    svg.appendChild(rect);
+    const t1 = svgEl('text', {x:x+boxW/2, y:y+22, 'text-anchor':'middle', class:'node-label'});
+    t1.textContent = VALUES[i];
+    svg.appendChild(t1);
+    const t2 = svgEl('text', {x:x+boxW/2, y:y+40, 'text-anchor':'middle', class:'node-sub'});
+    t2.textContent = 'copy['+i+']';
+    svg.appendChild(t2);
+  }
+
+  // cur label
+  const curLabel = svgEl('text', {x:20, y:bottomY+boxH+22, class:'row-label'});
+  curLabel.textContent = curIndex === -1 ? 'cur = dummy' : `cur 指向 copy[${curIndex}]`;
+  svg.appendChild(curLabel);
+
+  document.getElementById('desc').textContent = descFor(step);
+
+  const codePanel = document.getElementById('codePanel');
+  codePanel.innerHTML = CODE_LINES.map((line, idx) => {
+    const active = step && step.line === idx;
+    return `<div class="code-line${active ? ' active' : ''}">${escapeHtml(line)}</div>`;
+  }).join('');
+
+  document.getElementById('stepNum').textContent = `${Math.max(currentStep+1,0)} / ${steps.length}`;
+  document.getElementById('createdNum').textContent = created.filter(Boolean).length;
+
+  const mapEntries = [];
+  for(let k=0;k<=currentStep;k++){
+    const s = steps[k];
+    if(s.type==='ensureHeadCopy' && s.createdNow) mapEntries.push(s.i);
+    if(s.type==='ensureRandomCopy' && s.createdNow) mapEntries.push(s.j);
+  }
+  const mapPanel = document.getElementById('mapPanel');
+  if(mapEntries.length===0){
+    mapPanel.innerHTML = '<span class="empty-note">还没有记录</span>';
+  } else {
+    mapPanel.innerHTML = mapEntries.map(i => `<span class="map-chip">orig[${i}]=${VALUES[i]} &rarr; copy[${i}]</span>`).join('');
+  }
+
+  document.getElementById('prevBtn').disabled = currentStep <= 0;
+  document.getElementById('stepBtn').disabled = currentStep >= steps.length - 1;
+}
+
+function escapeHtml(s){
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+function stepForward(){
+  if(currentStep < steps.length - 1){
+    currentStep++;
+    render();
+  } else {
+    stopPlaying();
+  }
+}
+function stepBack(){
+  if(currentStep > 0){
+    currentStep--;
+    render();
+  }
+}
+
+function speedMs(){
+  const v = parseInt(document.getElementById('speedSlider').value);
+  return {1:1000, 2:550, 3:230}[v];
+}
+
+function startPlaying(){
+  if(currentStep >= steps.length - 1) currentStep = -1;
+  playing = true;
+  document.getElementById('playBtn').textContent = '⏸ 暂停';
+  playTimer = setInterval(() => {
+    if(currentStep >= steps.length - 1){
+      stopPlaying();
+      return;
+    }
+    stepForward();
+  }, speedMs());
+}
+function stopPlaying(){
+  playing = false;
+  document.getElementById('playBtn').textContent = '▶ 播放';
+  clearInterval(playTimer);
+}
+
+function newData(){
+  stopPlaying();
+  randomTarget = randomTargets();
+  steps = buildSteps();
+  currentStep = -1;
+  render();
+}
+
+function reset(){
+  stopPlaying();
+  currentStep = -1;
+  render();
+}
+
+document.getElementById('playBtn').addEventListener('click', () => {
+  playing ? stopPlaying() : startPlaying();
+});
+document.getElementById('stepBtn').addEventListener('click', () => { stopPlaying(); stepForward(); });
+document.getElementById('prevBtn').addEventListener('click', () => { stopPlaying(); stepBack(); });
+document.getElementById('resetBtn').addEventListener('click', reset);
+document.getElementById('newArrBtn').addEventListener('click', newData);
+document.getElementById('speedSlider').addEventListener('input', () => {
+  if(playing){ stopPlaying(); startPlaying(); }
+});
+
+newData();
+</script>
+</body>
+</html>
