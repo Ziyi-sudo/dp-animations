@@ -1,0 +1,454 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>3Sum 双指针可视化</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#0B1220;
+    --panel:#121B2E;
+    --panel-2:#17223A;
+    --line:#233252;
+    --text:#E7ECF6;
+    --muted:#8592AD;
+    --fix:#FFB454;
+    --left-p:#5EEAD4;
+    --right-p:#F472B6;
+    --found:#34D399;
+    --skip:#64748B;
+    --bar:#2C3B5C;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    background:var(--bg);
+    color:var(--text);
+    font-family:'Inter',sans-serif;
+    padding:32px 20px 60px;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+  }
+  .wrap{width:100%;max-width:960px;}
+  h1{
+    font-family:'Space Grotesk',sans-serif;
+    font-weight:700;
+    font-size:26px;
+    margin:0 0 4px;
+    letter-spacing:-0.02em;
+  }
+  .sub{color:var(--muted);font-size:14px;margin:0 0 28px;}
+  .panel{
+    background:var(--panel);
+    border:1px solid var(--line);
+    border-radius:14px;
+    padding:24px;
+    margin-bottom:20px;
+  }
+  .target-line{
+    font-family:'JetBrains Mono',monospace;
+    font-size:13px;
+    color:var(--muted);
+    margin-bottom:18px;
+  }
+  .target-line b{color:var(--fix);}
+  .bars{
+    display:flex;
+    align-items:flex-end;
+    justify-content:center;
+    gap:6px;
+    height:200px;
+    padding:0 4px;
+  }
+  .bar{
+    flex:1;
+    max-width:48px;
+    border-radius:4px 4px 0 0;
+    background:var(--bar);
+    position:relative;
+    transition:background 0.15s ease, opacity 0.15s ease;
+    display:flex;
+    align-items:flex-start;
+    justify-content:center;
+  }
+  .bar span{
+    position:absolute;
+    top:-22px;
+    font-family:'JetBrains Mono',monospace;
+    font-size:12px;
+    color:var(--muted);
+  }
+  .bar .tag{
+    position:absolute;
+    bottom:-26px;
+    font-family:'JetBrains Mono',monospace;
+    font-size:12px;
+    font-weight:600;
+    white-space:nowrap;
+  }
+  .desc-panel{
+    font-size:14px;
+    color:var(--text);
+    min-height:22px;
+    margin-bottom:28px;
+  }
+  .results-panel{
+    display:flex;
+    flex-wrap:wrap;
+    gap:8px;
+    min-height:32px;
+  }
+  .triple-chip{
+    font-family:'JetBrains Mono',monospace;
+    font-size:13px;
+    background:#123528;
+    border:1px solid var(--found);
+    color:var(--found);
+    padding:6px 12px;
+    border-radius:20px;
+  }
+  .empty-note{color:var(--muted);font-size:13px;}
+  .controls{
+    display:flex;
+    flex-wrap:wrap;
+    align-items:center;
+    gap:14px;
+    margin-bottom:20px;
+  }
+  button{
+    background:var(--panel-2);
+    color:var(--text);
+    border:1px solid var(--line);
+    border-radius:8px;
+    padding:9px 16px;
+    font-family:'Inter',sans-serif;
+    font-size:13px;
+    font-weight:500;
+    cursor:pointer;
+    transition:background 0.15s ease, border-color 0.15s ease;
+  }
+  button:hover{background:#1D2B47;border-color:#334369;}
+  button:active{transform:scale(0.97);}
+  button.primary{background:var(--fix);color:#33220A;border-color:var(--fix);}
+  button.primary:hover{background:#FFC578;}
+  button:disabled{opacity:0.4;cursor:not-allowed;}
+  .slider-group{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--muted);}
+  input[type=range]{accent-color:var(--fix);}
+  .stats{display:flex;gap:24px;flex-wrap:wrap;}
+  .stat{display:flex;flex-direction:column;gap:2px;}
+  .stat .num{font-family:'JetBrains Mono',monospace;font-size:20px;font-weight:500;}
+  .stat .label{font-size:12px;color:var(--muted);}
+  .legend{display:flex;gap:16px;flex-wrap:wrap;margin-top:32px;font-size:12px;color:var(--muted);}
+  .legend .dot{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:6px;vertical-align:-1px;}
+  .code-panel{
+    font-family:'JetBrains Mono',monospace;
+    font-size:13px;
+    line-height:1.9;
+    background:#0D1526;
+    border:1px solid var(--line);
+    border-radius:10px;
+    padding:16px 20px;
+  }
+  .code-line{color:var(--muted);padding:2px 8px;border-radius:4px;white-space:pre;}
+  .code-line.active{background:#28365A;color:var(--text);}
+  @media (max-width:600px){
+    .bars{height:160px;}
+    .bar{max-width:26px;}
+    .bar span, .bar .tag{font-size:9px;}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>3Sum 双指针演示</h1>
+  <p class="sub">固定 i,在 i 右边用 left / right 双指针夹逼找剩下两个数。相同的 i 和相同的 left 会被自动跳过,避免重复三元组。</p>
+
+  <div class="panel">
+    <div class="target-line">数组已排序,target = <b id="targetVal">-</b></div>
+    <div class="desc-panel" id="desc">点击 "开始 / 下一步" 开始演示</div>
+    <div class="bars" id="bars"></div>
+    <div class="legend">
+      <span><span class="dot" style="background:var(--fix)"></span>i(固定)</span>
+      <span><span class="dot" style="background:var(--left-p)"></span>left</span>
+      <span><span class="dot" style="background:var(--right-p)"></span>right</span>
+      <span><span class="dot" style="background:var(--found)"></span>找到一组</span>
+      <span><span class="dot" style="background:var(--skip)"></span>跳过(重复)</span>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="target-line" style="margin-bottom:10px;">已找到的三元组</div>
+    <div class="results-panel" id="results"><span class="empty-note">还没有找到</span></div>
+  </div>
+
+  <div class="panel">
+    <div class="controls">
+      <button class="primary" id="playBtn">▶ 播放</button>
+      <button id="stepBtn">下一步</button>
+      <button id="prevBtn">上一步</button>
+      <button id="resetBtn">重置</button>
+      <button id="newArrBtn">换一组数据</button>
+      <div class="slider-group">
+        速度
+        <input type="range" id="speedSlider" min="1" max="3" value="2" step="1">
+      </div>
+    </div>
+    <div class="stats">
+      <div class="stat"><span class="num" id="stepNum">0 / 0</span><span class="label">步骤</span></div>
+      <div class="stat"><span class="num" id="foundNum">0</span><span class="label">找到的组数</span></div>
+      <div class="stat"><span class="num" id="skipNum">0</span><span class="label">跳过重复次数</span></div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="code-panel" id="codePanel"></div>
+  </div>
+</div>
+
+<script>
+const CODE_LINES = [
+  "for i = 0 to n-3:",
+  "  if array[i] == array[i-1]: continue   // 跳过重复的i",
+  "  left = i+1; right = n-1",
+  "  while left < right:",
+  "    sum = array[left] + array[right]",
+  "    if sum+array[i]==target: 记录三元组; left++; 跳过重复的left",
+  "    elif sum+array[i]<target: left++",
+  "    else: right--"
+];
+
+let array = [];
+let target = 0;
+let steps = [];
+let currentStep = -1;
+let playing = false;
+let playTimer = null;
+
+function randomArray(n){
+  const arr = [];
+  for(let i = 0; i < n; i++){
+    arr.push(-8 + Math.floor(Math.random()*20));
+  }
+  arr.sort((a,b)=>a-b);
+  return arr;
+}
+
+function pickTarget(arr){
+  const n = arr.length;
+  const i = Math.floor(Math.random()*(n-2));
+  const j = i + 1 + Math.floor(Math.random()*(n-i-2));
+  const k = j + 1 + Math.floor(Math.random()*(n-j-1));
+  return arr[i] + arr[j] + arr[k];
+}
+
+function buildSteps(a, target){
+  const out = [];
+  const n = a.length;
+  for(let i = 0; i <= n-3; i++){
+    if(i > 0 && a[i] === a[i-1]){
+      out.push({type:'skipI', i, line:1});
+      continue;
+    }
+    out.push({type:'fixI', i, line:0});
+    let left = i+1, right = n-1;
+    out.push({type:'initLR', i, left, right, line:2});
+    while(left < right){
+      const sum = a[left] + a[right];
+      out.push({type:'checkSum', i, left, right, sum, line:4});
+      if(sum + a[i] === target){
+        out.push({type:'found', i, left, right, triple:[a[i],a[left],a[right]], line:5});
+        left++;
+        while(left < right && a[left] === a[left-1]){
+          out.push({type:'skipLeft', i, left, right, line:5});
+          left++;
+        }
+        out.push({type:'afterFound', i, left, right, line:5});
+      } else if(sum + a[i] < target){
+        out.push({type:'moveLeft', i, left, right, line:6});
+        left++;
+      } else {
+        out.push({type:'moveRight', i, left, right, line:7});
+        right--;
+      }
+    }
+  }
+  out.push({type:'done', line:-1});
+  return out;
+}
+
+function descFor(step){
+  if(!step) return "点击 \"开始 / 下一步\" 开始演示";
+  switch(step.type){
+    case 'skipI': return `array[${step.i}] 和前一个i重复,跳过,避免重复三元组`;
+    case 'fixI': return `固定 i = ${step.i},下面在它右边找两个数凑出剩下的目标`;
+    case 'initLR': return `left 从 i+1 出发,right 从数组末尾出发`;
+    case 'checkSum': return `sum = array[left]+array[right] = ${step.sum}`;
+    case 'found': return `array[i]+sum = target,找到一组!left++继续找`;
+    case 'skipLeft': return `新的left值和上一个相同,跳过,避免重复`;
+    case 'afterFound': return `继续在剩下的区间里找下一组`;
+    case 'moveLeft': return `和比target小,left太小了,left++`;
+    case 'moveRight': return `和比target大,right太大了,right--`;
+    case 'done': return `所有i都处理完了,演示结束`;
+    default: return '';
+  }
+}
+
+function render(){
+  const step = currentStep >= 0 ? steps[currentStep] : null;
+  const n = array.length;
+
+  const barsEl = document.getElementById('bars');
+  if(barsEl.children.length !== n){
+    barsEl.innerHTML = '';
+    for(let i = 0; i < n; i++){
+      const bar = document.createElement('div');
+      bar.className = 'bar';
+      bar.innerHTML = `<span></span><div class="tag"></div>`;
+      barsEl.appendChild(bar);
+    }
+  }
+
+  const minV = Math.min(...array);
+  const range = Math.max(...array) - minV || 1;
+
+  for(let idx = 0; idx < n; idx++){
+    const bar = barsEl.children[idx];
+    const val = array[idx];
+    bar.style.height = ((val - minV) / range * 150 + 25) + 'px';
+    bar.querySelector('span').textContent = val;
+    const tag = bar.querySelector('.tag');
+    tag.textContent = '';
+    let bg = 'var(--bar)';
+    let opacity = '1';
+
+    if(step && step.i !== undefined && idx < step.i){
+      opacity = '0.35';
+    }
+
+    if(step){
+      if(step.type === 'skipI' && idx === step.i){
+        bg = 'var(--skip)'; tag.textContent = 'skip';
+      }
+      if(step.i !== undefined && idx === step.i && step.type !== 'skipI' && step.type !== 'done'){
+        bg = 'var(--fix)'; tag.textContent = 'i';
+      }
+      if(step.left !== undefined && idx === step.left && step.type !== 'done'){
+        bg = (step.type === 'found') ? 'var(--found)' : (step.type === 'skipLeft' ? 'var(--skip)' : 'var(--left-p)');
+        tag.textContent = tag.textContent ? tag.textContent+' /L' : 'L';
+      }
+      if(step.right !== undefined && idx === step.right && step.type !== 'done'){
+        bg = (step.type === 'found') ? 'var(--found)' : 'var(--right-p)';
+        tag.textContent = tag.textContent ? tag.textContent+' /R' : 'R';
+      }
+    }
+
+    bar.style.background = bg;
+    bar.style.opacity = opacity;
+  }
+
+  document.getElementById('desc').textContent = descFor(step);
+  document.getElementById('targetVal').textContent = target;
+
+  const codePanel = document.getElementById('codePanel');
+  codePanel.innerHTML = CODE_LINES.map((line, idx) => {
+    const active = step && step.line === idx;
+    return `<div class="code-line${active ? ' active' : ''}">${escapeHtml(line)}</div>`;
+  }).join('');
+
+  document.getElementById('stepNum').textContent = `${Math.max(currentStep+1,0)} / ${steps.length}`;
+
+  const found = [];
+  let skips = 0;
+  for(let k = 0; k <= currentStep; k++){
+    if(steps[k].type === 'found') found.push(steps[k].triple);
+    if(steps[k].type === 'skipLeft' || steps[k].type === 'skipI') skips++;
+  }
+  document.getElementById('foundNum').textContent = found.length;
+  document.getElementById('skipNum').textContent = skips;
+
+  const resultsEl = document.getElementById('results');
+  if(found.length === 0){
+    resultsEl.innerHTML = '<span class="empty-note">还没有找到</span>';
+  } else {
+    resultsEl.innerHTML = found.map(t => `<span class="triple-chip">[${t.join(', ')}]</span>`).join('');
+  }
+
+  document.getElementById('prevBtn').disabled = currentStep <= 0;
+  document.getElementById('stepBtn').disabled = currentStep >= steps.length - 1;
+}
+
+function escapeHtml(s){
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+function stepForward(){
+  if(currentStep < steps.length - 1){
+    currentStep++;
+    render();
+  } else {
+    stopPlaying();
+  }
+}
+function stepBack(){
+  if(currentStep > 0){
+    currentStep--;
+    render();
+  }
+}
+
+function speedMs(){
+  const v = parseInt(document.getElementById('speedSlider').value);
+  return {1:900, 2:450, 3:180}[v];
+}
+
+function startPlaying(){
+  if(currentStep >= steps.length - 1) currentStep = -1;
+  playing = true;
+  document.getElementById('playBtn').textContent = '⏸ 暂停';
+  playTimer = setInterval(() => {
+    if(currentStep >= steps.length - 1){
+      stopPlaying();
+      return;
+    }
+    stepForward();
+  }, speedMs());
+}
+function stopPlaying(){
+  playing = false;
+  document.getElementById('playBtn').textContent = '▶ 播放';
+  clearInterval(playTimer);
+}
+
+function newArray(){
+  stopPlaying();
+  array = randomArray(9);
+  target = pickTarget(array);
+  steps = buildSteps(array, target);
+  currentStep = -1;
+  render();
+}
+
+function reset(){
+  stopPlaying();
+  currentStep = -1;
+  render();
+}
+
+document.getElementById('playBtn').addEventListener('click', () => {
+  playing ? stopPlaying() : startPlaying();
+});
+document.getElementById('stepBtn').addEventListener('click', () => { stopPlaying(); stepForward(); });
+document.getElementById('prevBtn').addEventListener('click', () => { stopPlaying(); stepBack(); });
+document.getElementById('resetBtn').addEventListener('click', reset);
+document.getElementById('newArrBtn').addEventListener('click', newArray);
+document.getElementById('speedSlider').addEventListener('input', () => {
+  if(playing){ stopPlaying(); startPlaying(); }
+});
+
+newArray();
+</script>
+</body>
+</html>
