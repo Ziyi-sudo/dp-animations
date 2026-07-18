@@ -1,0 +1,431 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Deep Copy Undirected Graph 可视化</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#0B1220;
+    --panel:#121B2E;
+    --panel-2:#17223A;
+    --line:#233252;
+    --text:#E7ECF6;
+    --muted:#8592AD;
+    --seed:#FFB454;
+    --nei:#F472B6;
+    --found:#34D399;
+    --box:#1C2740;
+    --box-empty:#141C30;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    background:var(--bg);
+    color:var(--text);
+    font-family:'Inter',sans-serif;
+    padding:32px 20px 60px;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+  }
+  .wrap{width:100%;max-width:1000px;}
+  h1{
+    font-family:'Space Grotesk',sans-serif;
+    font-weight:700;
+    font-size:26px;
+    margin:0 0 4px;
+    letter-spacing:-0.02em;
+  }
+  .sub{color:var(--muted);font-size:14px;margin:0 0 24px;}
+  .panel{
+    background:var(--panel);
+    border:1px solid var(--line);
+    border-radius:14px;
+    padding:24px;
+    margin-bottom:20px;
+    overflow-x:auto;
+  }
+  .desc-panel{
+    font-size:14px;
+    color:var(--text);
+    min-height:22px;
+    margin-bottom:14px;
+  }
+  svg{display:block;margin:0 auto;}
+  .node-label{font-family:'JetBrains Mono',monospace;font-size:15px;fill:var(--text);font-weight:700;}
+  .row-label{font-family:'Inter',sans-serif;font-size:12px;fill:var(--muted);}
+  .map-panel{
+    display:flex;
+    flex-wrap:wrap;
+    gap:8px;
+    min-height:32px;
+    margin-top:6px;
+  }
+  .map-chip{
+    font-family:'JetBrains Mono',monospace;
+    font-size:12px;
+    background:#17233d;
+    border:1px solid var(--line);
+    color:var(--found);
+    padding:5px 10px;
+    border-radius:16px;
+  }
+  .empty-note{color:var(--muted);font-size:13px;}
+  .controls{
+    display:flex;
+    flex-wrap:wrap;
+    align-items:center;
+    gap:14px;
+    margin-bottom:20px;
+  }
+  button{
+    background:var(--panel-2);
+    color:var(--text);
+    border:1px solid var(--line);
+    border-radius:8px;
+    padding:9px 16px;
+    font-family:'Inter',sans-serif;
+    font-size:13px;
+    font-weight:500;
+    cursor:pointer;
+    transition:background 0.15s ease, border-color 0.15s ease;
+  }
+  button:hover{background:#1D2B47;border-color:#334369;}
+  button:active{transform:scale(0.97);}
+  button.primary{background:var(--seed);color:#33220A;border-color:var(--seed);}
+  button.primary:hover{background:#FFC578;}
+  button:disabled{opacity:0.4;cursor:not-allowed;}
+  .slider-group{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--muted);}
+  input[type=range]{accent-color:var(--seed);}
+  .legend{display:flex;gap:16px;flex-wrap:wrap;margin-top:14px;font-size:12px;color:var(--muted);}
+  .legend .dot{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:6px;vertical-align:-1px;}
+  .stats{display:flex;gap:24px;flex-wrap:wrap;}
+  .stat{display:flex;flex-direction:column;gap:2px;}
+  .stat .num{font-family:'JetBrains Mono',monospace;font-size:20px;font-weight:500;}
+  .stat .label{font-size:12px;color:var(--muted);}
+  .code-panel{
+    font-family:'JetBrains Mono',monospace;
+    font-size:13px;
+    line-height:1.9;
+    background:#0D1526;
+    border:1px solid var(--line);
+    border-radius:10px;
+    padding:16px 20px;
+  }
+  .code-line{color:var(--muted);padding:2px 8px;border-radius:4px;white-space:pre;}
+  .code-line.active{background:#28365A;color:var(--text);}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Deep Copy Undirected Graph(可能有环)</h1>
+  <p class="sub">用 map 记录"原节点→新节点",先 put 再递归,遇到环时能自动停下来,不会无限递归。</p>
+
+  <div class="panel">
+    <div class="desc-panel" id="desc">点击 "开始 / 下一步" 开始演示</div>
+    <svg id="svgCanvas" viewBox="0 0 900 640" width="100%"></svg>
+    <div class="legend">
+      <span><span class="dot" style="background:var(--seed)"></span>当前节点(seed)</span>
+      <span><span class="dot" style="background:var(--nei)"></span>正在检查的邻居</span>
+      <span><span class="dot" style="background:var(--found)"></span>已建好 / 已连边</span>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="desc-panel" style="margin-bottom:4px;">HashMap(原节点 → 新节点)</div>
+    <div class="map-panel" id="mapPanel"><span class="empty-note">还没有记录</span></div>
+  </div>
+
+  <div class="panel">
+    <div class="controls">
+      <button class="primary" id="playBtn">▶ 播放</button>
+      <button id="stepBtn">下一步</button>
+      <button id="prevBtn">上一步</button>
+      <button id="resetBtn">重置</button>
+      <button id="newArrBtn">换一张图</button>
+      <div class="slider-group">
+        速度
+        <input type="range" id="speedSlider" min="1" max="3" value="2" step="1">
+      </div>
+    </div>
+    <div class="stats">
+      <div class="stat"><span class="num" id="stepNum">0 / 0</span><span class="label">步骤</span></div>
+      <div class="stat"><span class="num" id="createdNum">0</span><span class="label">已创建的新节点</span></div>
+      <div class="stat"><span class="num" id="edgeNum">0</span><span class="label">已连接的边</span></div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="code-panel" id="codePanel"></div>
+  </div>
+</div>
+
+<script>
+const CODE_LINES = [
+  "for node in graph list:",
+  "  if !map.containsKey(node): map.put(node, new Node); DFS(node)",
+  "DFS(seed):",
+  "  for nei in seed.neighbors:",
+  "    if !map.containsKey(nei): map.put(nei, new Node); DFS(nei)  // 先占位,再递归",
+  "    copy.neighbors.add(map.get(nei))  // 不管新旧,边都要接上"
+];
+
+const PRESETS = [
+  { labels:['A','B','C','D','E'], adj:[[1,3],[0,2],[1,3],[2,0,4],[3]] },
+  { labels:['A','B','C','D','E'], adj:[[1,2],[0,3],[0,3],[1,2,4],[3]] }
+];
+let presetIndex = 0;
+
+let steps = [];
+let currentStep = -1;
+let playing = false;
+let playTimer = null;
+
+function centerFor(cy){
+  const R = 130;
+  const cx = 450;
+  const pts = [];
+  const n = PRESETS[presetIndex].adj.length;
+  for(let i=0;i<n;i++){
+    const angle = -Math.PI/2 + i*(2*Math.PI/n);
+    pts.push({x: cx + R*Math.cos(angle), y: cy + R*Math.sin(angle)});
+  }
+  return pts;
+}
+
+function edgeKey(a,b){ return a<b ? a+'-'+b : b+'-'+a; }
+
+function buildSteps(){
+  const adj = PRESETS[presetIndex].adj;
+  const n = adj.length;
+  const out = [];
+  const created = new Array(n).fill(false);
+
+  function dfs(seed){
+    out.push({type:'enterDFS', seed, created:created.slice(), line:2});
+    for(const nei of adj[seed]){
+      out.push({type:'checkNei', seed, nei, created:created.slice(), line:3});
+      if(!created[nei]){
+        created[nei] = true;
+        out.push({type:'createNei', seed, nei, created:created.slice(), line:4});
+        dfs(nei);
+      }
+      out.push({type:'addEdge', seed, nei, created:created.slice(), line:5});
+    }
+    out.push({type:'exitDFS', seed, created:created.slice(), line:2});
+  }
+
+  for(let i=0;i<n;i++){
+    out.push({type:'visitTop', i, created:created.slice(), line:0});
+    if(!created[i]){
+      created[i] = true;
+      out.push({type:'createTop', i, created:created.slice(), line:1});
+      dfs(i);
+    }
+  }
+  out.push({type:'done', created:created.slice(), line:-1});
+  return out;
+}
+
+function descFor(step){
+  const labels = PRESETS[presetIndex].labels;
+  if(!step) return "点击 \"开始 / 下一步\" 开始演示";
+  switch(step.type){
+    case 'visitTop': return `graph 列表里的下一个起点是 ${labels[step.i]},检查它有没有被拷贝过`;
+    case 'createTop': return `${labels[step.i]} 还没被拷贝过,新建一个拷贝节点存入 map,准备对它做 DFS`;
+    case 'enterDFS': return `进入 DFS(${labels[step.seed]}),准备处理它的所有邻居`;
+    case 'checkNei': return `检查 ${labels[step.seed]} 的邻居 ${labels[step.nei]},看它有没有被拷贝过`;
+    case 'createNei': return `${labels[step.nei]} 还没被拷贝过,新建拷贝节点,递归 DFS(${labels[step.nei]}) 继续往深处走`;
+    case 'addEdge': return `不管 ${labels[step.nei]} 是不是刚建的,都要把 ${labels[step.seed]}-${labels[step.nei]} 这条边接到新图里`;
+    case 'exitDFS': return `DFS(${labels[step.seed]}) 处理完所有邻居,返回上一层`;
+    case 'done': return `所有节点都拷贝完毕,新图和原图结构完全一致`;
+    default: return '';
+  }
+}
+
+function svgEl(tag, attrs){
+  const el = document.createElementNS('http://www.w3.org/2000/svg', tag);
+  for(const k in attrs) el.setAttribute(k, attrs[k]);
+  return el;
+}
+
+function render(){
+  const step = currentStep >= 0 ? steps[currentStep] : null;
+  const adj = PRESETS[presetIndex].adj;
+  const labels = PRESETS[presetIndex].labels;
+  const n = adj.length;
+  const created = step ? step.created : new Array(n).fill(false);
+
+  const topPts = centerFor(160);
+  const bottomPts = centerFor(480);
+
+  const svg = document.getElementById('svgCanvas');
+  svg.innerHTML = '';
+
+  svg.appendChild(svgEl('text', {x:20, y:30, class:'row-label'})).textContent = '原图';
+  svg.appendChild(svgEl('text', {x:20, y:350, class:'row-label'})).textContent = '新图(深拷贝)';
+
+  // static top edges
+  const edgeSet = new Set();
+  for(let i=0;i<n;i++){
+    for(const j of adj[i]){
+      const key = edgeKey(i,j);
+      if(edgeSet.has(key)) continue;
+      edgeSet.add(key);
+      const isActive = step && (step.type==='checkNei'||step.type==='createNei'||step.type==='addEdge') && edgeKey(step.seed,step.nei)===key;
+      const p1 = topPts[i], p2 = topPts[j];
+      svg.appendChild(svgEl('line', {x1:p1.x,y1:p1.y,x2:p2.x,y2:p2.y, stroke: isActive?'var(--nei)':'#3a4a70', 'stroke-width': isActive?'2.4':'1.4'}));
+    }
+  }
+
+  // top nodes
+  for(let i=0;i<n;i++){
+    const p = topPts[i];
+    let fill='var(--box)', stroke='#334369';
+    if(step && (step.type==='visitTop'||step.type==='createTop') && step.i===i){ fill='#2b2312'; stroke='var(--seed)'; }
+    if(step && (step.type==='enterDFS'||step.type==='exitDFS') && step.seed===i){ fill='#2b2312'; stroke='var(--seed)'; }
+    if(step && (step.type==='checkNei'||step.type==='createNei'||step.type==='addEdge')){
+      if(step.seed===i){ fill='#2b2312'; stroke='var(--seed)'; }
+      if(step.nei===i){ fill='#3a1d2c'; stroke='var(--nei)'; }
+    }
+    svg.appendChild(svgEl('circle', {cx:p.x, cy:p.y, r:30, fill, stroke, 'stroke-width':'1.8'}));
+    const t = svgEl('text', {x:p.x, y:p.y+5, 'text-anchor':'middle', class:'node-label'});
+    t.textContent = labels[i];
+    svg.appendChild(t);
+  }
+
+  // bottom revealed edges
+  const revealed = new Set();
+  for(let k=0;k<=currentStep;k++){
+    if(steps[k].type==='addEdge') revealed.add(edgeKey(steps[k].seed, steps[k].nei));
+  }
+  revealed.forEach(key=>{
+    const parts = key.split('-').map(Number);
+    const a = parts[0], b = parts[1];
+    const isActive = step && step.type==='addEdge' && edgeKey(step.seed,step.nei)===key;
+    const p1 = bottomPts[a], p2 = bottomPts[b];
+    svg.appendChild(svgEl('line', {x1:p1.x,y1:p1.y,x2:p2.x,y2:p2.y, stroke: isActive?'var(--found)':'#2e6f57', 'stroke-width': isActive?'2.6':'1.6'}));
+  });
+
+  // bottom nodes
+  for(let i=0;i<n;i++){
+    const p = bottomPts[i];
+    if(!created[i]){
+      svg.appendChild(svgEl('circle', {cx:p.x, cy:p.y, r:30, fill:'var(--box-empty)', stroke:'#2a3650', 'stroke-width':'1.2', 'stroke-dasharray':'4 4'}));
+      continue;
+    }
+    let fill='var(--box)', stroke='#334369';
+    if(step && (step.type==='createTop') && step.i===i){ fill='#2b2312'; stroke='var(--seed)'; }
+    if(step && (step.type==='enterDFS'||step.type==='exitDFS') && step.seed===i){ fill='#2b2312'; stroke='var(--seed)'; }
+    if(step && step.type==='createNei' && step.nei===i){ fill='#3a1d2c'; stroke='var(--nei)'; }
+    if(step && step.type==='addEdge' && (step.seed===i||step.nei===i)){ fill='#12281e'; stroke='var(--found)'; }
+    svg.appendChild(svgEl('circle', {cx:p.x, cy:p.y, r:30, fill, stroke, 'stroke-width':'1.8'}));
+    const t = svgEl('text', {x:p.x, y:p.y+5, 'text-anchor':'middle', class:'node-label'});
+    t.textContent = labels[i];
+    svg.appendChild(t);
+  }
+
+  document.getElementById('desc').textContent = descFor(step);
+
+  const codePanel = document.getElementById('codePanel');
+  codePanel.innerHTML = CODE_LINES.map((line, idx) => {
+    const active = step && step.line === idx;
+    return `<div class="code-line${active ? ' active' : ''}">${escapeHtml(line)}</div>`;
+  }).join('');
+
+  document.getElementById('stepNum').textContent = `${Math.max(currentStep+1,0)} / ${steps.length}`;
+  document.getElementById('createdNum').textContent = created.filter(Boolean).length;
+  document.getElementById('edgeNum').textContent = revealed.size;
+
+  const mapEntries = [];
+  for(let k=0;k<=currentStep;k++){
+    const s = steps[k];
+    if(s.type==='createTop') mapEntries.push(s.i);
+    if(s.type==='createNei') mapEntries.push(s.nei);
+  }
+  const mapPanel = document.getElementById('mapPanel');
+  if(mapEntries.length===0){
+    mapPanel.innerHTML = '<span class="empty-note">还没有记录</span>';
+  } else {
+    mapPanel.innerHTML = mapEntries.map(i => `<span class="map-chip">${labels[i]} &rarr; copy(${labels[i]})</span>`).join('');
+  }
+
+  document.getElementById('prevBtn').disabled = currentStep <= 0;
+  document.getElementById('stepBtn').disabled = currentStep >= steps.length - 1;
+}
+
+function escapeHtml(s){
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+function stepForward(){
+  if(currentStep < steps.length - 1){
+    currentStep++;
+    render();
+  } else {
+    stopPlaying();
+  }
+}
+function stepBack(){
+  if(currentStep > 0){
+    currentStep--;
+    render();
+  }
+}
+
+function speedMs(){
+  const v = parseInt(document.getElementById('speedSlider').value);
+  return {1:1000, 2:550, 3:230}[v];
+}
+
+function startPlaying(){
+  if(currentStep >= steps.length - 1) currentStep = -1;
+  playing = true;
+  document.getElementById('playBtn').textContent = '⏸ 暂停';
+  playTimer = setInterval(() => {
+    if(currentStep >= steps.length - 1){
+      stopPlaying();
+      return;
+    }
+    stepForward();
+  }, speedMs());
+}
+function stopPlaying(){
+  playing = false;
+  document.getElementById('playBtn').textContent = '▶ 播放';
+  clearInterval(playTimer);
+}
+
+function newData(){
+  stopPlaying();
+  presetIndex = (presetIndex + 1) % PRESETS.length;
+  steps = buildSteps();
+  currentStep = -1;
+  render();
+}
+
+function reset(){
+  stopPlaying();
+  currentStep = -1;
+  render();
+}
+
+document.getElementById('playBtn').addEventListener('click', () => {
+  playing ? stopPlaying() : startPlaying();
+});
+document.getElementById('stepBtn').addEventListener('click', () => { stopPlaying(); stepForward(); });
+document.getElementById('prevBtn').addEventListener('click', () => { stopPlaying(); stepBack(); });
+document.getElementById('resetBtn').addEventListener('click', reset);
+document.getElementById('newArrBtn').addEventListener('click', newData);
+document.getElementById('speedSlider').addEventListener('input', () => {
+  if(playing){ stopPlaying(); startPlaying(); }
+});
+
+steps = buildSteps();
+render();
+</script>
+</body>
+</html>
