@@ -1,0 +1,347 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Bipartite — 多源 BFS 染色可视化</title>
+<style>
+  :root{
+    --bg:#1e1e2e;
+    --surface:#282838;
+    --surface-2:#313244;
+    --border:#3f3f56;
+    --text:#cdd6f4;
+    --subtext:#a6adc8;
+    --muted:#6c7086;
+    --groupA:#cba6f7;
+    --groupB:#94e2d5;
+    --cur:#f9e2af;
+    --nei:#fab387;
+    --bad:#f38ba8;
+    --ok:#a6e3a1;
+    --accent-text:#1e1e2e;
+    --line:#f9e2af;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0; background:var(--bg); color:var(--text);
+    font-family:'Segoe UI', -apple-system, sans-serif;
+    padding:2.5rem 1.5rem; display:flex; justify-content:center;
+  }
+  .wrap{max-width:1080px; width:100%;}
+  h1{font-size:22px; font-weight:500; margin:0 0 4px;}
+  .subtitle{font-size:14px; color:var(--subtext); margin:0 0 24px;}
+  .controls-row{display:flex; gap:12px; align-items:center; flex-wrap:wrap; margin-bottom:20px;}
+  button{
+    background:var(--surface-2); color:var(--text);
+    border:0.5px solid var(--border); border-radius:6px;
+    padding:8px 16px; font-size:14px; cursor:pointer;
+  }
+  button:hover{background:var(--border);}
+  button:disabled{opacity:0.4; cursor:default;}
+  .main-row{display:flex; gap:20px; flex-wrap:wrap; align-items:flex-start;}
+  .left-col{flex:1 1 380px; min-width:340px;}
+  .right-col{flex:1 1 420px; min-width:320px;}
+  .panel{
+    background:var(--surface); border:0.5px solid var(--border);
+    border-radius:12px; padding:1.25rem; margin-bottom:16px;
+  }
+  svg{width:100%; height:auto; display:block;}
+  .legend{display:flex; gap:14px; flex-wrap:wrap; font-size:12px; color:var(--subtext); margin-bottom:12px;}
+  .legend span{display:inline-flex; align-items:center; gap:5px;}
+  .swatch{width:12px; height:12px; border-radius:50%; display:inline-block;}
+  .queue-row{display:flex; gap:8px; align-items:center; margin:12px 0; flex-wrap:wrap; min-height:34px;}
+  .queue-label{font-size:12px; color:var(--subtext);}
+  .chip{
+    background:var(--surface-2); border:0.5px solid var(--border);
+    border-radius:16px; padding:4px 12px; font-size:13px;
+    font-family:'SF Mono','Fira Code',monospace;
+  }
+  .result-banner{
+    font-size:15px; font-weight:600; padding:10px 14px; border-radius:8px;
+    margin-bottom:12px; display:none;
+  }
+  .result-banner.show{display:block;}
+  .result-banner.ok{background:rgba(166,227,161,0.15); color:var(--ok); border:0.5px solid var(--ok);}
+  .result-banner.bad{background:rgba(243,139,168,0.15); color:var(--bad); border:0.5px solid var(--bad);}
+  .step-label{font-size:14px; color:var(--text); min-height:20px; margin:0 0 6px;}
+  .step-meta{font-size:12px; color:var(--muted); font-family:'SF Mono','Fira Code',monospace; min-height:16px;}
+  .step-counter{font-size:12px; color:var(--subtext); margin-top:10px;}
+  .code-panel{background:#181825; border:0.5px solid var(--border); border-radius:12px; overflow:hidden;}
+  .code-header{font-size:12px; color:var(--subtext); padding:10px 16px; border-bottom:0.5px solid var(--border); font-family:'SF Mono','Fira Code',monospace;}
+  pre{margin:0; padding:14px 0; overflow-x:auto; font-family:'SF Mono','Fira Code','Consolas',monospace; font-size:13px; line-height:1.65;}
+  .code-line{display:block; padding:0 16px; white-space:pre; color:var(--subtext);}
+  .code-line .ln{display:inline-block; width:26px; color:var(--muted); user-select:none;}
+  .code-line.hl{background:rgba(249,226,175,0.14); color:var(--line); border-left:2px solid var(--line); padding-left:14px;}
+  .code-line.hl .ln{color:var(--line);}
+  .kw{color:#89b4fa;}
+  .fn{color:#89dceb;}
+  .cmt{color:var(--muted); font-style:italic;}
+  .foot{font-size:12px; color:var(--muted); margin-top:24px; text-align:center;}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Bipartite — 多源 BFS 染色</h1>
+  <p class="subtitle">示例图含两个连通分量：分量A是4环（二分图），分量B是三角形（非二分图），演示"多分量调度"和"冲突检测"</p>
+
+  <div class="controls-row">
+    <button id="prev">◀ 上一步</button>
+    <button id="next">下一步 ▶</button>
+    <button id="reset">重置</button>
+  </div>
+
+  <div class="main-row">
+    <div class="left-col">
+      <div class="panel">
+        <div class="legend">
+          <span><span class="swatch" style="background:var(--surface-2); border:0.5px solid var(--border);"></span>未访问</span>
+          <span><span class="swatch" style="background:var(--groupA)"></span>组 A</span>
+          <span><span class="swatch" style="background:var(--groupB)"></span>组 B</span>
+          <span><span class="swatch" style="background:var(--cur)"></span>当前 cur</span>
+          <span><span class="swatch" style="background:var(--nei)"></span>正在检查的邻居</span>
+        </div>
+        <svg id="graphSvg" viewBox="0 0 620 260" xmlns="http://www.w3.org/2000/svg"></svg>
+        <div class="queue-row">
+          <span class="queue-label">queue:</span>
+          <div id="queueChips" style="display:flex; gap:8px; flex-wrap:wrap;"></div>
+        </div>
+        <div class="result-banner" id="resultBanner"></div>
+        <p class="step-label" id="stepLabel"></p>
+        <p class="step-meta" id="stepMeta"></p>
+        <p class="step-counter" id="stepCounter"></p>
+      </div>
+    </div>
+    <div class="right-col">
+      <div class="code-panel">
+        <div class="code-header">Solution.java</div>
+        <pre id="codeBlock"></pre>
+      </div>
+    </div>
+  </div>
+
+  <p class="foot">用「上一步 / 下一步」逐行看代码如何执行，观察分量A顺利完成、分量B在检测到冲突后立即停止</p>
+</div>
+
+<script>
+const CODE_LINES = [
+  {n:1,  html:'<span class="kw">public</span> <span class="kw">boolean</span> <span class="fn">isBipartite</span>(List&lt;GraphNode&gt; graph) {'},
+  {n:2,  html:'&nbsp;&nbsp;Map&lt;GraphNode, Boolean&gt; map = <span class="kw">new</span> HashMap&lt;&gt;();'},
+  {n:3,  html:'&nbsp;&nbsp;<span class="kw">for</span> (GraphNode node : graph) {'},
+  {n:4,  html:'&nbsp;&nbsp;&nbsp;&nbsp;<span class="kw">if</span> (map.containsKey(node)) <span class="kw">continue</span>;&nbsp;<span class="cmt">// 分量处理过，跳过</span>'},
+  {n:5,  html:''},
+  {n:6,  html:'&nbsp;&nbsp;&nbsp;&nbsp;Queue&lt;GraphNode&gt; queue = <span class="kw">new</span> ArrayDeque&lt;&gt;();'},
+  {n:7,  html:'&nbsp;&nbsp;&nbsp;&nbsp;queue.offer(node);'},
+  {n:8,  html:'&nbsp;&nbsp;&nbsp;&nbsp;map.put(node, <span class="kw">false</span>);&nbsp;<span class="cmt">// 播种新分量</span>'},
+  {n:9,  html:''},
+  {n:10, html:'&nbsp;&nbsp;&nbsp;&nbsp;<span class="kw">while</span> (!queue.isEmpty()) {&nbsp;<span class="cmt">// 走完整个连通分量</span>'},
+  {n:11, html:'&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;GraphNode cur = queue.poll();'},
+  {n:12, html:'&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="kw">boolean</span> curFlag = map.get(cur);'},
+  {n:13, html:'&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="kw">for</span> (GraphNode nei : cur.neighbors) {'},
+  {n:14, html:'&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="kw">if</span> (!map.containsKey(nei)) {'},
+  {n:15, html:'&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;map.put(nei, !curFlag);'},
+  {n:16, html:'&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;queue.offer(nei);'},
+  {n:17, html:'&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;} <span class="kw">else if</span> (map.get(nei) == curFlag) {'},
+  {n:18, html:'&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="kw">return</span> <span class="kw">false</span>;&nbsp;<span class="cmt">// 冲突：同色相邻</span>'},
+  {n:19, html:'&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}'},
+  {n:20, html:'&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}'},
+  {n:21, html:'&nbsp;&nbsp;&nbsp;&nbsp;}'},
+  {n:22, html:'&nbsp;&nbsp;}'},
+  {n:23, html:'&nbsp;&nbsp;<span class="kw">return</span> <span class="kw">true</span>;'},
+  {n:24, html:'}'},
+];
+
+// 固定示例图：分量A = 4环(0-1-2-3-0)，分量B = 三角形(4-5-6-4)
+const NODES = {
+  0:{x:110,y:70},  1:{x:230,y:70},  2:{x:230,y:190}, 3:{x:110,y:190},
+  4:{x:430,y:70},  5:{x:520,y:190}, 6:{x:340,y:190},
+};
+const ADJ = {
+  0:[1,3], 1:[0,2], 2:[1,3], 3:[2,0],
+  4:[5,6], 5:[4,6], 6:[5,4],
+};
+const GRAPH_ORDER = [0,1,2,3,4,5,6];
+const EDGES = [[0,1],[1,2],[2,3],[3,0],[4,5],[5,6],[6,4]];
+
+let steps = [];
+
+function pushStep(s){ steps.push(s); }
+
+function generateSteps(){
+  steps = [];
+  const map = {}; // id -> false/true
+  const queue = [];
+
+  pushStep({lines:[2], label:'初始化 map（记录每个节点的颜色）', meta:'', map:{...map}, queue:[...queue], cur:null, nei:null, conflict:null, result:null});
+
+  for (const node of GRAPH_ORDER) {
+    pushStep({lines:[3], label:'外层 for 检查节点 '+node, meta:'', map:{...map}, queue:[...queue], cur:null, nei:null, conflict:null, result:null});
+
+    if (map.hasOwnProperty(node)) {
+      pushStep({lines:[4], label:'节点 '+node+' 已经在 map 中，跳过（分量已处理过）', meta:'', map:{...map}, queue:[...queue], cur:null, nei:null, conflict:null, result:null});
+      continue;
+    }
+
+    queue.push(node);
+    map[node] = false;
+    pushStep({lines:[6,7,8], label:'播种新连通分量，起点 '+node+' 染色为组A', meta:'map['+node+']=false', map:{...map}, queue:[...queue], cur:null, nei:null, conflict:null, result:null});
+
+    while (queue.length > 0) {
+      const cur = queue.shift();
+      const curFlag = map[cur];
+      pushStep({lines:[11,12], label:'取出 cur = '+cur, meta:'curFlag = '+curFlag, map:{...map}, queue:[...queue], cur:cur, nei:null, conflict:null, result:null});
+
+      for (const nei of ADJ[cur]) {
+        pushStep({lines:[13], label:'检查 cur='+cur+' 的邻居 '+nei, meta:'', map:{...map}, queue:[...queue], cur:cur, nei:nei, conflict:null, result:null});
+
+        if (!map.hasOwnProperty(nei)) {
+          map[nei] = !curFlag;
+          queue.push(nei);
+          pushStep({lines:[14,15,16], label:'邻居 '+nei+' 未访问，染成相反颜色并入队', meta:'map['+nei+']='+map[nei], map:{...map}, queue:[...queue], cur:cur, nei:nei, conflict:null, result:null});
+        } else if (map[nei] === curFlag) {
+          pushStep({lines:[17,18], label:'冲突！'+cur+' 和 '+nei+' 颜色相同却相邻 → return false', meta:'', map:{...map}, queue:[...queue], cur:cur, nei:nei, conflict:[cur,nei], result:false});
+          return;
+        } else {
+          pushStep({lines:[17], label:'邻居 '+nei+' 已访问且颜色不同，无冲突，跳过', meta:'', map:{...map}, queue:[...queue], cur:cur, nei:nei, conflict:null, result:null});
+        }
+      }
+    }
+  }
+  pushStep({lines:[23], label:'所有节点都检查完毕，没有冲突 → return true', meta:'', map:{...map}, queue:[...queue], cur:null, nei:null, conflict:null, result:true});
+}
+
+function renderCode(){
+  const codeEl = document.getElementById('codeBlock');
+  codeEl.innerHTML = '';
+  CODE_LINES.forEach(line => {
+    const span = document.createElement('span');
+    span.className = 'code-line';
+    span.id = 'line-' + line.n;
+    span.innerHTML = '<span class="ln">' + line.n + '</span>' + line.html;
+    codeEl.appendChild(span);
+  });
+}
+
+function edgeId(a,b){ return 'edge-'+Math.min(a,b)+'-'+Math.max(a,b); }
+
+function renderGraphSkeleton(){
+  const svg = document.getElementById('graphSvg');
+  svg.innerHTML = '';
+  const ns = 'http://www.w3.org/2000/svg';
+
+  EDGES.forEach(([a,b]) => {
+    const line = document.createElementNS(ns,'line');
+    line.setAttribute('id', edgeId(a,b));
+    line.setAttribute('x1', NODES[a].x); line.setAttribute('y1', NODES[a].y);
+    line.setAttribute('x2', NODES[b].x); line.setAttribute('y2', NODES[b].y);
+    line.setAttribute('stroke', '#3f3f56');
+    line.setAttribute('stroke-width', '2');
+    svg.appendChild(line);
+  });
+
+  Object.keys(NODES).forEach(id => {
+    const {x,y} = NODES[id];
+    const circle = document.createElementNS(ns,'circle');
+    circle.setAttribute('id', 'node-'+id);
+    circle.setAttribute('cx', x); circle.setAttribute('cy', y);
+    circle.setAttribute('r', 22);
+    circle.setAttribute('fill', '#313244');
+    circle.setAttribute('stroke', '#3f3f56');
+    circle.setAttribute('stroke-width', '2');
+    svg.appendChild(circle);
+
+    const text = document.createElementNS(ns,'text');
+    text.setAttribute('x', x); text.setAttribute('y', y+5);
+    text.setAttribute('text-anchor','middle');
+    text.setAttribute('font-family',"'SF Mono','Fira Code',monospace");
+    text.setAttribute('font-size','14');
+    text.setAttribute('fill','#cdd6f4');
+    text.textContent = id;
+    svg.appendChild(text);
+  });
+}
+
+function colorFor(flag){
+  if (flag === undefined) return '#313244';
+  return flag ? 'var(--groupB)'.replace('var(--groupB)','#94e2d5') : '#cba6f7';
+}
+
+let cur = 0;
+
+function render(){
+  const s = steps[cur];
+
+  Object.keys(NODES).forEach(id => {
+    const idNum = parseInt(id);
+    const circle = document.getElementById('node-'+id);
+    circle.setAttribute('fill', colorFor(s.map[idNum]));
+    let stroke = '#3f3f56', width = '2';
+    if (s.conflict && s.conflict.includes(idNum)) { stroke = '#f38ba8'; width='4'; }
+    else if (s.cur === idNum) { stroke = '#f9e2af'; width='4'; }
+    else if (s.nei === idNum) { stroke = '#fab387'; width='4'; }
+    circle.setAttribute('stroke', stroke);
+    circle.setAttribute('stroke-width', width);
+  });
+
+  EDGES.forEach(([a,b]) => {
+    const line = document.getElementById(edgeId(a,b));
+    let stroke = '#3f3f56', width='2';
+    if (s.conflict && s.conflict.includes(a) && s.conflict.includes(b)) { stroke='#f38ba8'; width='3'; }
+    else if (s.cur!==null && s.nei!==null && ((a===s.cur&&b===s.nei)||(b===s.cur&&a===s.nei))) { stroke='#fab387'; width='3'; }
+    line.setAttribute('stroke', stroke);
+    line.setAttribute('stroke-width', width);
+  });
+
+  const qEl = document.getElementById('queueChips');
+  qEl.innerHTML = '';
+  if (s.queue.length === 0) {
+    const span = document.createElement('span');
+    span.className='chip'; span.style.opacity='0.5'; span.textContent='(空)';
+    qEl.appendChild(span);
+  } else {
+    s.queue.forEach(v => {
+      const span = document.createElement('span');
+      span.className='chip'; span.textContent = v;
+      qEl.appendChild(span);
+    });
+  }
+
+  const banner = document.getElementById('resultBanner');
+  if (s.result === null) {
+    banner.className = 'result-banner';
+  } else if (s.result === true) {
+    banner.className = 'result-banner show ok';
+    banner.textContent = '✓ return true — 是二分图';
+  } else {
+    banner.className = 'result-banner show bad';
+    banner.textContent = '✗ return false — 不是二分图';
+  }
+
+  document.getElementById('stepLabel').textContent = s.label;
+  document.getElementById('stepMeta').textContent = s.meta || '';
+  document.getElementById('stepCounter').textContent = '第 ' + cur + ' / ' + (steps.length-1) + ' 步';
+
+  CODE_LINES.forEach(line => {
+    const el = document.getElementById('line-' + line.n);
+    el.classList.toggle('hl', s.lines.includes(line.n));
+  });
+  if (s.lines.length) {
+    const target = document.getElementById('line-' + s.lines[0]);
+    if (target) target.scrollIntoView({block:'nearest'});
+  }
+
+  document.getElementById('prev').disabled = (cur === 0);
+  document.getElementById('next').disabled = (cur === steps.length - 1);
+}
+
+document.getElementById('next').onclick = () => { if (cur < steps.length-1) cur++; render(); };
+document.getElementById('prev').onclick = () => { if (cur > 0) cur--; render(); };
+document.getElementById('reset').onclick = () => { cur = 0; render(); };
+
+renderCode();
+renderGraphSkeleton();
+generateSteps();
+render();
+</script>
+</body>
+</html>
