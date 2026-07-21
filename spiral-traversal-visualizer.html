@@ -1,0 +1,512 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Spiral Order Traversal I — offset / size 递归可视化</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg: #0b0d12;
+    --panel: #12151c;
+    --panel-2: #171b24;
+    --line: #262b36;
+    --text: #e9ecf3;
+    --muted: #7c8399;
+    --teal: #4fd8c4;
+    --amber: #ffb454;
+    --violet: #9b9bff;
+    --red: #ff6b6b;
+    --mono: 'JetBrains Mono', ui-monospace, monospace;
+    --display: 'Space Grotesk', sans-serif;
+    --body: 'Inter', sans-serif;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;background:var(--bg);color:var(--text);font-family:var(--body);}
+  body{
+    min-height:100vh;
+    padding:40px 24px 80px;
+  }
+  .wrap{max-width:1180px;margin:0 auto;}
+
+  header{margin-bottom:36px;}
+  .eyebrow{
+    font-family:var(--mono);font-size:12px;letter-spacing:.14em;text-transform:uppercase;
+    color:var(--teal); margin-bottom:10px; display:flex; align-items:center; gap:10px;
+  }
+  .eyebrow::before{content:"";width:18px;height:1px;background:var(--teal);display:inline-block;}
+  h1{
+    font-family:var(--display); font-weight:700; font-size:clamp(28px,4vw,42px);
+    margin:0 0 12px; letter-spacing:-0.01em; line-height:1.1;
+  }
+  h1 span{color:var(--muted); font-weight:500;}
+  .sub{color:var(--muted); font-size:15px; max-width:640px; line-height:1.6;}
+  .sub b{color:var(--text); font-weight:600;}
+
+  .layout{
+    display:grid;
+    grid-template-columns: minmax(320px, 480px) 1fr;
+    gap:28px;
+  }
+  @media (max-width: 880px){ .layout{grid-template-columns:1fr;} }
+
+  .panel{
+    background:var(--panel);
+    border:1px solid var(--line);
+    border-radius:14px;
+    padding:22px;
+  }
+  .panel-title{
+    font-family:var(--mono); font-size:11px; letter-spacing:.1em; text-transform:uppercase;
+    color:var(--muted); margin-bottom:16px; display:flex; justify-content:space-between; align-items:center;
+  }
+
+  /* ---- matrix + svg ---- */
+  .matrix-stage{
+    display:flex; flex-direction:column; align-items:center; gap:18px;
+  }
+  .matrix-svg-holder{ width:100%; display:flex; justify-content:center; }
+  svg.matrix{ overflow:visible; }
+  .cell-rect{
+    fill: var(--panel-2);
+    stroke: var(--line);
+    stroke-width:1.5;
+    rx:8;
+    transition: fill .25s ease, stroke .25s ease;
+  }
+  .cell-rect.visited{ fill:#182028; stroke:#2b3948; }
+  .cell-rect.current{ fill:rgba(255,180,84,.16); stroke:var(--amber); stroke-width:2; }
+  .cell-value{
+    font-family:var(--mono); font-size:17px; font-weight:500; fill:var(--text);
+    text-anchor:middle; dominant-baseline:central; pointer-events:none;
+  }
+  .cell-value.dim{ fill:#4b5262; }
+  .cell-order{
+    font-family:var(--mono); font-size:10px; font-weight:600; fill:var(--teal);
+    text-anchor:middle; dominant-baseline:central; pointer-events:none;
+  }
+  .path-line{
+    fill:none; stroke:var(--teal); stroke-width:2; stroke-linecap:round; stroke-linejoin:round;
+    opacity:.55;
+  }
+  .boundary-rect{
+    fill:none; stroke:var(--violet); stroke-width:2; stroke-dasharray:6 5;
+    rx:12; opacity:.9;
+    transition: x .35s ease, y .35s ease, width .35s ease, height .35s ease, opacity .35s ease;
+  }
+
+  .layer-badges{ display:flex; gap:10px; flex-wrap:wrap; justify-content:center; }
+  .badge{
+    font-family:var(--mono); font-size:12px; padding:6px 12px; border-radius:999px;
+    border:1px solid var(--line); color:var(--muted); background:var(--panel-2);
+  }
+  .badge b{ color:var(--violet); font-weight:600; }
+  .badge.amber b{ color:var(--amber); }
+
+  /* ---- controls ---- */
+  .controls{
+    display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin-top:6px;
+  }
+  button{
+    font-family:var(--mono); font-size:12px; letter-spacing:.03em;
+    background:var(--panel-2); color:var(--text); border:1px solid var(--line);
+    padding:9px 14px; border-radius:9px; cursor:pointer; transition:.15s ease;
+  }
+  button:hover{ border-color:var(--teal); color:var(--teal); }
+  button:active{ transform:translateY(1px); }
+  button.primary{ background:var(--teal); color:#06110f; border-color:var(--teal); font-weight:600; }
+  button.primary:hover{ opacity:.9; color:#06110f; }
+  button:disabled{ opacity:.35; cursor:not-allowed; }
+  button:disabled:hover{ border-color:var(--line); color:var(--text); }
+
+  .n-control{
+    display:flex; align-items:center; gap:8px; font-family:var(--mono); font-size:12px; color:var(--muted);
+    margin-left:auto;
+  }
+  .n-control input[type=range]{ accent-color: var(--teal); width:90px; }
+
+  .progress-row{
+    display:flex; align-items:center; gap:12px; margin-top:14px;
+  }
+  .progress-bar{
+    flex:1; height:4px; background:var(--line); border-radius:2px; overflow:hidden; cursor:pointer;
+  }
+  .progress-fill{ height:100%; background:var(--teal); width:0%; transition:width .18s linear; }
+  .step-count{ font-family:var(--mono); font-size:11px; color:var(--muted); white-space:nowrap; }
+
+  /* ---- code panel ---- */
+  pre.code{
+    margin:0; font-family:var(--mono); font-size:13px; line-height:1.9;
+    color:#b7bdcc; overflow-x:auto;
+  }
+  .code-line{ display:block; padding:1px 10px; border-radius:6px; white-space:pre; }
+  .code-line.active{ background:rgba(79,216,196,.12); color:var(--teal); box-shadow: inset 2px 0 0 var(--teal); }
+  .code-line .kw{ color:#c792ea; }
+  .code-line .fn{ color:#82aaff; }
+  .code-line .cm{ color:#5c6370; font-style:italic; }
+  .code-line .nm{ color:#f78c6c; }
+
+  .legend-row{
+    display:flex; gap:14px; flex-wrap:wrap; margin-top:16px; padding-top:16px; border-top:1px solid var(--line);
+    font-family:var(--mono); font-size:11px; color:var(--muted);
+  }
+  .legend-item{ display:flex; align-items:center; gap:6px; }
+  .dot{ width:9px; height:9px; border-radius:3px; display:inline-block; }
+
+  /* ---- output sequence ---- */
+  .seq-panel{ margin-top:22px; }
+  .seq-list{
+    display:flex; flex-wrap:wrap; gap:6px; font-family:var(--mono); font-size:13px;
+    min-height:32px;
+  }
+  .seq-chip{
+    background:var(--panel-2); border:1px solid var(--line); color:var(--muted);
+    padding:4px 9px; border-radius:6px;
+  }
+  .seq-chip.on{ color:var(--teal); border-color:rgba(79,216,196,.4); background:rgba(79,216,196,.07); }
+  .seq-chip.on.latest{ color:#06110f; background:var(--teal); border-color:var(--teal); font-weight:600; }
+
+  .note{
+    margin-top:22px; font-size:13px; color:var(--muted); line-height:1.7;
+    background:var(--panel-2); border:1px solid var(--line); border-radius:10px; padding:14px 16px;
+  }
+  .note b{ color:var(--text); }
+  .note code{ font-family:var(--mono); color:var(--amber); font-size:12.5px; }
+
+  footer{
+    margin-top:44px; text-align:center; color:var(--muted); font-size:12px; font-family:var(--mono);
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <div class="eyebrow">LaiCode 121 · Recursive Spiral Traversal</div>
+    <h1>Spiral Order Traversal I <span>— offset / size 是怎么收缩的</span></h1>
+    <p class="sub">
+      每一圈只做两件事：<b>沿边走 size-1 步</b>，走完四条边后 <b>offset+1，size-2</b> 进入下一圈。
+      拖动进度条或点击「下一步」，跟着代码逐行看矩阵是怎么被剥开的。
+    </p>
+  </header>
+
+  <div class="layout">
+
+    <!-- LEFT: matrix visualization -->
+    <div class="panel">
+      <div class="panel-title">
+        <span>矩阵 · MATRIX</span>
+        <div class="n-control">
+          <span>N</span>
+          <input type="range" id="nSlider" min="3" max="7" step="1" value="5">
+          <span id="nValue">5</span>
+        </div>
+      </div>
+
+      <div class="matrix-stage">
+        <div class="matrix-svg-holder"><svg class="matrix" id="matrixSvg"></svg></div>
+        <div class="layer-badges" id="layerBadges"></div>
+      </div>
+
+      <div class="progress-row">
+        <div class="progress-bar" id="progressBar"><div class="progress-fill" id="progressFill"></div></div>
+        <span class="step-count" id="stepCount">0 / 0</span>
+      </div>
+
+      <div class="controls" style="margin-top:14px;">
+        <button id="resetBtn">↺ 重置</button>
+        <button id="prevBtn">← 上一步</button>
+        <button id="nextBtn" class="primary">下一步 →</button>
+        <button id="playBtn">▶ 播放</button>
+      </div>
+
+      <div class="legend-row">
+        <div class="legend-item"><span class="dot" style="background:var(--amber)"></span>当前访问</div>
+        <div class="legend-item"><span class="dot" style="background:#2b3948; border:1px solid var(--teal)"></span>已访问</div>
+        <div class="legend-item"><span class="dot" style="background:transparent;border:1.5px dashed var(--violet)"></span>当前层边界</div>
+      </div>
+    </div>
+
+    <!-- RIGHT: code + sequence -->
+    <div>
+      <div class="panel">
+        <div class="panel-title"><span>代码 · recursiveTraverse()</span></div>
+        <pre class="code" id="codeBlock"></pre>
+      </div>
+
+      <div class="panel seq-panel">
+        <div class="panel-title"><span>输出序列 · result list</span></div>
+        <div class="seq-list" id="seqList"></div>
+      </div>
+
+      <div class="note">
+        <b>为什么坐标永远是「加」offset：</b> 每一圈都有自己的局部坐标（从0开始），<code>offset</code> 是把局部坐标平移到大矩阵里的量。
+        右边 / 下边用 <code>size - 1 + offset</code>，size 缩小的幅度比 offset 增长快，所以看起来像往中心收缩——但公式本身，从头到尾都只有加号。
+      </div>
+    </div>
+
+  </div>
+
+  <footer>built for personal review · spiral order traversal, offset+size recursion</footer>
+</div>
+
+<script>
+const state = {
+  N: 5,
+  matrix: [],
+  steps: [],
+  idx: -1,           // current step index (rendered up to & including this)
+  playing: false,
+  timer: null,
+};
+
+const CODE_LINES = [
+  {id:'sig',    html:'<span class="fn">recursiveTraverse</span>(matrix, offset, size, result) {'},
+  {id:'base0',  html:'  <span class="kw">if</span> (size == <span class="nm">0</span>) <span class="kw">return</span>;  <span class="cm">// 缩没了</span>'},
+  {id:'base1a', html:'  <span class="kw">if</span> (size == <span class="nm">1</span>) {  <span class="cm">// 只剩中心一个点</span>'},
+  {id:'base1',  html:'    result.add(matrix[offset][offset]);'},
+  {id:'base1b', html:'    <span class="kw">return</span>;'},
+  {id:'base1c', html:'  }'},
+  {id:'top',    html:'  <span class="kw">for</span> (i = 0; i &lt; size-1; i++)  <span class="cm">// 上边</span>'},
+  {id:'top2',   html:'    result.add(matrix[offset][offset + i]);'},
+  {id:'right',  html:'  <span class="kw">for</span> (i = 0; i &lt; size-1; i++)  <span class="cm">// 右边</span>'},
+  {id:'right2', html:'    result.add(matrix[offset + i][offset + size-1]);'},
+  {id:'bottom', html:'  <span class="kw">for</span> (i = size-1; i &gt;= 1; i--) <span class="cm">// 下边</span>'},
+  {id:'bottom2',html:'    result.add(matrix[offset + size-1][offset + i]);'},
+  {id:'left',   html:'  <span class="kw">for</span> (i = size-1; i &gt;= 1; i--) <span class="cm">// 左边</span>'},
+  {id:'left2',  html:'    result.add(matrix[offset + i][offset]);'},
+  {id:'recurse',html:'  <span class="fn">recursiveTraverse</span>(matrix, offset+<span class="nm">1</span>, size-<span class="nm">2</span>, result);'},
+  {id:'end',    html:'}'},
+];
+
+function buildMatrix(N){
+  const m = [];
+  for(let r=0;r<N;r++){
+    const row=[];
+    for(let c=0;c<N;c++) row.push(r*N+c+1);
+    m.push(row);
+  }
+  return m;
+}
+
+function simulate(N){
+  const steps = [];
+  function rec(offset, size){
+    if(size === 0){ steps.push({type:'base0', offset, size, line:'base0'}); return; }
+    if(size === 1){ steps.push({type:'visit', row:offset, col:offset, offset, size, line:'base1'}); return; }
+    for(let i=0;i<size-1;i++) steps.push({type:'visit', row:offset, col:offset+i, offset, size, line:'top2'});
+    for(let i=0;i<size-1;i++) steps.push({type:'visit', row:offset+i, col:offset+size-1, offset, size, line:'right2'});
+    for(let i=size-1;i>=1;i--) steps.push({type:'visit', row:offset+size-1, col:offset+i, offset, size, line:'bottom2'});
+    for(let i=size-1;i>=1;i--) steps.push({type:'visit', row:offset+i, col:offset, offset, size, line:'left2'});
+    steps.push({type:'recurse', offset, size, nextOffset:offset+1, nextSize:size-2, line:'recurse'});
+    rec(offset+1, size-2);
+  }
+  rec(0, N);
+  let order = 0;
+  steps.forEach(s => { if(s.type==='visit'){ s.order = order++; } });
+  return steps;
+}
+
+// ---------- rendering ----------
+const CELL = 58, GAP = 6;
+
+function buildSvgSkeleton(N){
+  const svg = document.getElementById('matrixSvg');
+  const size = N*(CELL+GAP)-GAP;
+  svg.setAttribute('width', size);
+  svg.setAttribute('height', size);
+  svg.setAttribute('viewBox', `0 0 ${size} ${size}`);
+  svg.innerHTML = '';
+
+  const pathEl = document.createElementNS('http://www.w3.org/2000/svg','polyline');
+  pathEl.setAttribute('class','path-line');
+  pathEl.setAttribute('id','pathLine');
+  svg.appendChild(pathEl);
+
+  const boundary = document.createElementNS('http://www.w3.org/2000/svg','rect');
+  boundary.setAttribute('class','boundary-rect');
+  boundary.setAttribute('id','boundaryRect');
+  svg.appendChild(boundary);
+
+  for(let r=0;r<N;r++){
+    for(let c=0;c<N;c++){
+      const x = c*(CELL+GAP), y = r*(CELL+GAP);
+      const g = document.createElementNS('http://www.w3.org/2000/svg','g');
+      g.setAttribute('id', `cell-${r}-${c}`);
+
+      const rect = document.createElementNS('http://www.w3.org/2000/svg','rect');
+      rect.setAttribute('class','cell-rect');
+      rect.setAttribute('x', x); rect.setAttribute('y', y);
+      rect.setAttribute('width', CELL); rect.setAttribute('height', CELL);
+      rect.setAttribute('rx', 8);
+      g.appendChild(rect);
+
+      const val = document.createElementNS('http://www.w3.org/2000/svg','text');
+      val.setAttribute('class','cell-value dim');
+      val.setAttribute('x', x+CELL/2); val.setAttribute('y', y+CELL/2 - 4);
+      val.textContent = state.matrix[r][c];
+      g.appendChild(val);
+
+      const ord = document.createElementNS('http://www.w3.org/2000/svg','text');
+      ord.setAttribute('class','cell-order');
+      ord.setAttribute('x', x+CELL/2); ord.setAttribute('y', y+CELL/2 + 16);
+      ord.textContent = '';
+      g.appendChild(ord);
+
+      svg.appendChild(g);
+    }
+  }
+}
+
+function cellCenter(r,c){
+  return [c*(CELL+GAP)+CELL/2, r*(CELL+GAP)+CELL/2];
+}
+
+function render(){
+  const N = state.N;
+  // reset all cells
+  for(let r=0;r<N;r++)for(let c=0;c<N;c++){
+    const g = document.getElementById(`cell-${r}-${c}`);
+    g.querySelector('.cell-rect').setAttribute('class','cell-rect');
+    g.querySelector('.cell-value').setAttribute('class','cell-value dim');
+    g.querySelector('.cell-order').textContent = '';
+  }
+
+  const pts = [];
+  let curOffset = 0, curSize = N, curLine = null, curCell = null, order = -1;
+  const seqValues = [];
+
+  for(let i=0;i<=state.idx && i<state.steps.length;i++){
+    const s = state.steps[i];
+    curOffset = s.offset; curSize = s.size; curLine = s.line;
+    if(s.type === 'visit'){
+      const g = document.getElementById(`cell-${s.row}-${s.col}`);
+      g.querySelector('.cell-rect').setAttribute('class','cell-rect visited');
+      g.querySelector('.cell-value').setAttribute('class','cell-value');
+      g.querySelector('.cell-order').textContent = s.order+1;
+      const [cx,cy] = cellCenter(s.row,s.col);
+      pts.push(`${cx},${cy}`);
+      curCell = s;
+      order = s.order;
+      seqValues.push(state.matrix[s.row][s.col]);
+    }
+  }
+
+  // current step highlight (amber) only if current step is a visit
+  if(state.idx >= 0 && state.idx < state.steps.length){
+    const s = state.steps[state.idx];
+    if(s.type === 'visit'){
+      const g = document.getElementById(`cell-${s.row}-${s.col}`);
+      g.querySelector('.cell-rect').setAttribute('class','cell-rect current');
+    }
+  }
+
+  document.getElementById('pathLine').setAttribute('points', pts.join(' '));
+
+  // boundary rect: use the layer currently being processed
+  let bOffset = curOffset, bSize = curSize;
+  if(state.idx >= 0 && state.idx < state.steps.length && state.steps[state.idx].type === 'recurse'){
+    bOffset = state.steps[state.idx].nextOffset;
+    bSize = state.steps[state.idx].nextSize;
+  }
+  const br = document.getElementById('boundaryRect');
+  if(bSize > 0){
+    const x = bOffset*(CELL+GAP) - 6, y = bOffset*(CELL+GAP) - 6;
+    const wh = bSize*(CELL+GAP) - GAP + 12;
+    br.setAttribute('x', x); br.setAttribute('y', y);
+    br.setAttribute('width', wh); br.setAttribute('height', wh);
+    br.style.opacity = 1;
+  } else {
+    br.style.opacity = 0;
+  }
+
+  // code highlight
+  document.querySelectorAll('.code-line').forEach(el=>{
+    el.classList.toggle('active', el.dataset.id === curLine);
+  });
+
+  // layer badges
+  document.getElementById('layerBadges').innerHTML = `
+    <span class="badge amber"><b>offset</b> = ${curOffset}</span>
+    <span class="badge"><b>size</b> = ${curSize}</span>
+    <span class="badge">已收集 <b style="color:var(--teal)">${order+1}</b> / ${N*N}</span>
+  `;
+
+  // sequence chips
+  const seqList = document.getElementById('seqList');
+  seqList.innerHTML = seqValues.map((v,i)=>{
+    const isLatest = (i === seqValues.length-1);
+    return `<span class="seq-chip on${isLatest?' latest':''}">${v}</span>`;
+  }).join('') || '<span class="seq-chip">（尚未开始）</span>';
+
+  // progress
+  const total = state.steps.length;
+  const pct = total ? Math.min(100,((state.idx+1)/total)*100) : 0;
+  document.getElementById('progressFill').style.width = pct+'%';
+  document.getElementById('stepCount').textContent = `${Math.max(0,state.idx+1)} / ${total}`;
+
+  document.getElementById('prevBtn').disabled = state.idx <= -1;
+  document.getElementById('nextBtn').disabled = state.idx >= total-1;
+  if(state.idx >= total-1){ stopPlay(); }
+}
+
+function buildCodePanel(){
+  const pre = document.getElementById('codeBlock');
+  pre.innerHTML = CODE_LINES.map(l => `<span class="code-line" data-id="${l.id}">${l.html}</span>`).join('\n');
+}
+
+function init(N){
+  state.N = N;
+  state.matrix = buildMatrix(N);
+  state.steps = simulate(N);
+  state.idx = -1;
+  buildSvgSkeleton(N);
+  buildCodePanel();
+  render();
+}
+
+function goNext(){ if(state.idx < state.steps.length-1){ state.idx++; render(); } }
+function goPrev(){ if(state.idx > -1){ state.idx--; render(); } }
+function goReset(){ state.idx = -1; render(); stopPlay(); }
+
+function stopPlay(){
+  state.playing = false;
+  document.getElementById('playBtn').textContent = '▶ 播放';
+  if(state.timer){ clearInterval(state.timer); state.timer=null; }
+}
+function startPlay(){
+  if(state.idx >= state.steps.length-1) goReset();
+  state.playing = true;
+  document.getElementById('playBtn').textContent = '⏸ 暂停';
+  state.timer = setInterval(()=>{
+    if(state.idx >= state.steps.length-1){ stopPlay(); return; }
+    goNext();
+  }, 420);
+}
+
+document.getElementById('nextBtn').addEventListener('click', ()=>{ stopPlay(); goNext(); });
+document.getElementById('prevBtn').addEventListener('click', ()=>{ stopPlay(); goPrev(); });
+document.getElementById('resetBtn').addEventListener('click', goReset);
+document.getElementById('playBtn').addEventListener('click', ()=>{
+  state.playing ? stopPlay() : startPlay();
+});
+document.getElementById('progressBar').addEventListener('click', (e)=>{
+  stopPlay();
+  const rect = e.currentTarget.getBoundingClientRect();
+  const pct = (e.clientX - rect.left)/rect.width;
+  const target = Math.round(pct * (state.steps.length-1));
+  state.idx = Math.max(-1, Math.min(state.steps.length-1, target));
+  render();
+});
+document.getElementById('nSlider').addEventListener('input', (e)=>{
+  const N = parseInt(e.target.value,10);
+  document.getElementById('nValue').textContent = N;
+  stopPlay();
+  init(N);
+});
+
+init(state.N);
+</script>
+</body>
+</html>
