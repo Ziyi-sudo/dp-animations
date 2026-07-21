@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Rotate Matrix — 分层四点循环替换可视化</title>
+<style>
+  :root{
+    --bg:#1e1e2e;
+    --surface:#282838;
+    --surface-2:#313244;
+    --border:#3f3f56;
+    --text:#cdd6f4;
+    --subtext:#a6adc8;
+    --muted:#6c7086;
+    --accent:#cba6f7;
+    --accent-text:#1e1e2e;
+    --up:#f9e2af;
+    --left:#a6e3a1;
+    --down:#89dceb;
+    --right:#f38ba8;
+    --line:#f9e2af;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    background:var(--bg);
+    color:var(--text);
+    font-family:'Segoe UI', -apple-system, sans-serif;
+    padding:2.5rem 1.5rem;
+    display:flex;
+    justify-content:center;
+  }
+  .wrap{max-width:1080px; width:100%;}
+  h1{font-size:22px; font-weight:500; margin:0 0 4px;}
+  .subtitle{font-size:14px; color:var(--subtext); margin:0 0 24px;}
+  .controls-row{
+    display:flex; gap:16px; align-items:center; flex-wrap:wrap; margin-bottom:20px;
+  }
+  .controls-row label{font-size:13px; color:var(--subtext);}
+  input[type=range]{width:140px; accent-color:var(--accent);}
+  button{
+    background:var(--surface-2); color:var(--text);
+    border:0.5px solid var(--border); border-radius:6px;
+    padding:8px 16px; font-size:14px; cursor:pointer;
+  }
+  button:hover{background:var(--border);}
+  button:disabled{opacity:0.4; cursor:default;}
+  .n-out{font-size:14px; font-weight:500; min-width:16px; display:inline-block;}
+  .main-row{display:flex; gap:20px; flex-wrap:wrap; align-items:flex-start;}
+  .left-col{flex:1 1 340px; min-width:300px;}
+  .right-col{flex:1 1 420px; min-width:320px;}
+  .array-panel{
+    background:var(--surface); border:0.5px solid var(--border);
+    border-radius:12px; padding:1.25rem; margin-bottom:16px;
+  }
+  .matrix{display:inline-flex; flex-direction:column; gap:5px; margin-bottom:14px;}
+  .row{display:flex; gap:5px;}
+  .cell{
+    width:46px; height:46px;
+    display:flex; align-items:center; justify-content:center;
+    border-radius:6px; border:0.5px solid var(--border);
+    background:var(--surface-2); color:var(--text);
+    font-size:14px; font-family:'SF Mono','Fira Code',monospace;
+    transition:background 0.15s, color 0.15s, border-color 0.15s;
+  }
+  .cell.up{background:var(--up); color:var(--accent-text); font-weight:600;}
+  .cell.left{background:var(--left); color:var(--accent-text); font-weight:600;}
+  .cell.down{background:var(--down); color:var(--accent-text); font-weight:600;}
+  .cell.right{background:var(--right); color:var(--accent-text); font-weight:600;}
+  .legend{display:flex; gap:14px; flex-wrap:wrap; font-size:12px; color:var(--subtext); margin-bottom:14px;}
+  .legend span{display:inline-flex; align-items:center; gap:5px;}
+  .swatch{width:12px; height:12px; border-radius:3px; display:inline-block;}
+  .tmp-box{
+    display:inline-flex; align-items:center; gap:8px;
+    background:var(--surface-2); border:0.5px solid var(--border);
+    border-radius:8px; padding:8px 14px; margin-bottom:14px; font-size:13px;
+  }
+  .tmp-val{
+    font-family:'SF Mono','Fira Code',monospace; font-weight:600;
+    color:var(--accent); min-width:20px; text-align:center;
+  }
+  .step-label{font-size:14px; color:var(--text); min-height:20px; margin:0 0 6px;}
+  .step-meta{font-size:12px; color:var(--muted); font-family:'SF Mono','Fira Code',monospace; min-height:32px;}
+  .step-counter{font-size:12px; color:var(--subtext); margin-top:10px;}
+  .code-panel{
+    background:#181825; border:0.5px solid var(--border);
+    border-radius:12px; overflow:hidden;
+  }
+  .code-header{
+    font-size:12px; color:var(--subtext); padding:10px 16px;
+    border-bottom:0.5px solid var(--border); font-family:'SF Mono','Fira Code',monospace;
+  }
+  pre{margin:0; padding:14px 0; overflow-x:auto; font-family:'SF Mono','Fira Code','Consolas',monospace; font-size:13px; line-height:1.65;}
+  .code-line{display:block; padding:0 16px; white-space:pre; color:var(--subtext);}
+  .code-line .ln{display:inline-block; width:26px; color:var(--muted); user-select:none;}
+  .code-line.hl{background:rgba(249,226,175,0.14); color:var(--line); border-left:2px solid var(--line); padding-left:14px;}
+  .code-line.hl .ln{color:var(--line);}
+  .kw{color:#89b4fa;}
+  .fn{color:#89dceb;}
+  .cmt{color:var(--muted); font-style:italic;}
+  .foot{font-size:12px; color:var(--muted); margin-top:24px; text-align:center;}
+  @media (max-width:600px){
+    .cell{width:36px; height:36px; font-size:12px;}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Rotate Matrix — 分层四点循环替换</h1>
+  <p class="subtitle">每一圈从外到内，四个位置一组循环换位，逐行同步代码执行位置</p>
+
+  <div class="controls-row">
+    <label>矩阵大小 N</label>
+    <input type="range" min="3" max="7" value="4" step="1" id="nRange">
+    <span class="n-out" id="nOut">4</span>
+    <button id="prev">◀ 上一步</button>
+    <button id="next">下一步 ▶</button>
+    <button id="reset">重置</button>
+  </div>
+
+  <div class="main-row">
+    <div class="left-col">
+      <div class="array-panel">
+        <div class="legend">
+          <span><span class="swatch" style="background:var(--up)"></span>上边</span>
+          <span><span class="swatch" style="background:var(--left)"></span>左边</span>
+          <span><span class="swatch" style="background:var(--down)"></span>下边</span>
+          <span><span class="swatch" style="background:var(--right)"></span>右边</span>
+        </div>
+        <div class="matrix" id="matrix"></div>
+        <div class="tmp-box">tmp = <span class="tmp-val" id="tmpVal">—</span></div>
+        <p class="step-label" id="stepLabel"></p>
+        <p class="step-meta" id="stepMeta"></p>
+        <p class="step-counter" id="stepCounter"></p>
+      </div>
+    </div>
+    <div class="right-col">
+      <div class="code-panel">
+        <div class="code-header">Solution.java</div>
+        <pre id="codeBlock"></pre>
+      </div>
+    </div>
+  </div>
+
+  <p class="foot">拖动滑块改变矩阵大小，用「上一步 / 下一步」逐行看代码如何执行</p>
+</div>
+
+<script>
+const CODE_LINES = [
+  {n:1,  html:'<span class="kw">public</span> <span class="kw">void</span> <span class="fn">rotate</span>(<span class="kw">int</span>[][] matrix) {'},
+  {n:2,  html:'&nbsp;&nbsp;<span class="kw">int</span> n = matrix.length;'},
+  {n:3,  html:'&nbsp;&nbsp;<span class="kw">if</span> (n &lt;= 1) {'},
+  {n:4,  html:'&nbsp;&nbsp;&nbsp;&nbsp;<span class="kw">return</span>;'},
+  {n:5,  html:'&nbsp;&nbsp;}'},
+  {n:6,  html:'&nbsp;&nbsp;<span class="kw">int</span> round = n / 2;'},
+  {n:7,  html:'&nbsp;&nbsp;<span class="kw">for</span> (<span class="kw">int</span> level = 0; level &lt; round; level++) {'},
+  {n:8,  html:'&nbsp;&nbsp;&nbsp;&nbsp;<span class="kw">int</span> left = level;'},
+  {n:9,  html:'&nbsp;&nbsp;&nbsp;&nbsp;<span class="kw">int</span> right = n - 2 - level;'},
+  {n:10, html:'&nbsp;&nbsp;&nbsp;&nbsp;<span class="kw">for</span> (<span class="kw">int</span> i = left; i &lt;= right; i++) {'},
+  {n:11, html:'&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="kw">int</span> tmp = matrix[left][i];&nbsp;<span class="cmt">// 存住"上边"</span>'},
+  {n:12, html:'&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;matrix[left][i] = matrix[n-1-i][left];&nbsp;<span class="cmt">// 左→上</span>'},
+  {n:13, html:'&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;matrix[n-1-i][left] = matrix[n-1-left][n-1-i];&nbsp;<span class="cmt">// 下→左</span>'},
+  {n:14, html:'&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;matrix[n-1-left][n-1-i] = matrix[i][n-1-left];&nbsp;<span class="cmt">// 右→下</span>'},
+  {n:15, html:'&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;matrix[i][n-1-left] = tmp;&nbsp;<span class="cmt">// tmp→右</span>'},
+  {n:16, html:'&nbsp;&nbsp;&nbsp;&nbsp;}'},
+  {n:17, html:'&nbsp;&nbsp;}'},
+  {n:18, html:'}'},
+];
+
+let N = 4, base, steps, cur;
+
+function cloneMat(m){ return m.map(r => r.slice()); }
+
+function trace(mat, n, steps) {
+  const round = Math.floor(n/2);
+  steps.push({mat:cloneMat(mat), hl:[], tmp:null, lines:[6], label:'计算需要处理的圈数', meta:'round = n / 2 = '+round});
+  for (let level = 0; level < round; level++) {
+    const left = level, right = n - 2 - level;
+    steps.push({mat:cloneMat(mat), hl:[], tmp:null, lines:[8,9], label:'进入第 '+level+' 圈', meta:'left='+left+'  right='+right});
+    for (let i = left; i <= right; i++) {
+      const up=[left,i], lft=[n-1-i,left], dn=[n-1-left,n-1-i], rgt=[i,n-1-left];
+
+      const tmp = mat[up[0]][up[1]];
+      steps.push({mat:cloneMat(mat), hl:[{p:up,role:'up'}], tmp:tmp, lines:[11], label:'tmp = matrix[上边]', meta:'存住位置 ('+up[0]+','+up[1]+') 的值 = '+tmp});
+
+      mat[up[0]][up[1]] = mat[lft[0]][lft[1]];
+      steps.push({mat:cloneMat(mat), hl:[{p:up,role:'up'},{p:lft,role:'left'}], tmp:tmp, lines:[12], label:'左边 → 上边', meta:'('+lft[0]+','+lft[1]+') → ('+up[0]+','+up[1]+')'});
+
+      mat[lft[0]][lft[1]] = mat[dn[0]][dn[1]];
+      steps.push({mat:cloneMat(mat), hl:[{p:lft,role:'left'},{p:dn,role:'down'}], tmp:tmp, lines:[13], label:'下边 → 左边', meta:'('+dn[0]+','+dn[1]+') → ('+lft[0]+','+lft[1]+')'});
+
+      mat[dn[0]][dn[1]] = mat[rgt[0]][rgt[1]];
+      steps.push({mat:cloneMat(mat), hl:[{p:dn,role:'down'},{p:rgt,role:'right'}], tmp:tmp, lines:[14], label:'右边 → 下边', meta:'('+rgt[0]+','+rgt[1]+') → ('+dn[0]+','+dn[1]+')'});
+
+      mat[rgt[0]][rgt[1]] = tmp;
+      steps.push({mat:cloneMat(mat), hl:[{p:rgt,role:'right'}], tmp:tmp, lines:[15], label:'tmp（原上边的值）→ 右边', meta:'完成这一组四点循环'});
+    }
+  }
+  steps.push({mat:cloneMat(mat), hl:[], tmp:null, lines:[18], label:'完成！返回结果', meta:''});
+}
+
+function build() {
+  N = parseInt(document.getElementById('nRange').value);
+  document.getElementById('nOut').textContent = N;
+  base = [];
+  let v = 1;
+  for (let i = 0; i < N; i++) {
+    const row = [];
+    for (let j = 0; j < N; j++) row.push(v++);
+    base.push(row);
+  }
+  const mat = cloneMat(base);
+  steps = [{mat:cloneMat(mat), hl:[], tmp:null, lines:[2,3], label:'初始矩阵', meta:'N = '+N}];
+  trace(mat, N, steps);
+
+  renderCode();
+  cur = 0;
+  render();
+}
+
+function renderCode() {
+  const codeEl = document.getElementById('codeBlock');
+  codeEl.innerHTML = '';
+  CODE_LINES.forEach(line => {
+    const span = document.createElement('span');
+    span.className = 'code-line';
+    span.id = 'line-' + line.n;
+    span.innerHTML = '<span class="ln">' + line.n + '</span>' + line.html;
+    codeEl.appendChild(span);
+  });
+}
+
+function render() {
+  const s = steps[cur];
+  const matEl = document.getElementById('matrix');
+  matEl.innerHTML = '';
+  for (let i = 0; i < N; i++) {
+    const rowEl = document.createElement('div');
+    rowEl.className = 'row';
+    for (let j = 0; j < N; j++) {
+      const d = document.createElement('div');
+      d.className = 'cell';
+      d.textContent = s.mat[i][j];
+      const hit = s.hl.find(h => h.p[0]===i && h.p[1]===j);
+      if (hit) d.classList.add(hit.role);
+      rowEl.appendChild(d);
+    }
+    matEl.appendChild(rowEl);
+  }
+  document.getElementById('tmpVal').textContent = (s.tmp===null) ? '—' : s.tmp;
+  document.getElementById('stepLabel').textContent = s.label;
+  document.getElementById('stepMeta').textContent = s.meta || '';
+  document.getElementById('stepCounter').textContent = '第 ' + cur + ' / ' + (steps.length-1) + ' 步';
+
+  CODE_LINES.forEach(line => {
+    const el = document.getElementById('line-' + line.n);
+    el.classList.toggle('hl', s.lines.includes(line.n));
+  });
+  if (s.lines.length) {
+    const target = document.getElementById('line-' + s.lines[0]);
+    if (target) target.scrollIntoView({block:'nearest'});
+  }
+
+  document.getElementById('prev').disabled = (cur === 0);
+  document.getElementById('next').disabled = (cur === steps.length - 1);
+}
+
+document.getElementById('next').onclick = () => { if (cur < steps.length-1) cur++; render(); };
+document.getElementById('prev').onclick = () => { if (cur > 0) cur--; render(); };
+document.getElementById('reset').onclick = () => { cur = 0; render(); };
+document.getElementById('nRange').oninput = build;
+
+build();
+</script>
+</body>
+</html>
