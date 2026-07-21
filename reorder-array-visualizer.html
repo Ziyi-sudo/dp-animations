@@ -1,0 +1,331 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ReOrder Array — 三次反转分治可视化</title>
+<style>
+  :root{
+    --bg:#1e1e2e;
+    --surface:#282838;
+    --surface-2:#313244;
+    --border:#3f3f56;
+    --text:#cdd6f4;
+    --subtext:#a6adc8;
+    --muted:#6c7086;
+    --accent:#cba6f7;
+    --accent-text:#1e1e2e;
+    --line:#f9e2af;
+    --line-text:#1e1e2e;
+    --green:#a6e3a1;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    background:var(--bg);
+    color:var(--text);
+    font-family:'Segoe UI', -apple-system, sans-serif;
+    padding:2.5rem 1.5rem;
+    display:flex;
+    justify-content:center;
+  }
+  .wrap{max-width:1040px; width:100%;}
+  h1{
+    font-size:22px;
+    font-weight:500;
+    margin:0 0 4px;
+  }
+  .subtitle{
+    font-size:14px;
+    color:var(--subtext);
+    margin:0 0 28px;
+  }
+  .controls-row{
+    display:flex;
+    gap:16px;
+    align-items:center;
+    flex-wrap:wrap;
+    margin-bottom:20px;
+  }
+  .controls-row label{font-size:13px; color:var(--subtext);}
+  input[type=range]{width:140px; accent-color:var(--accent);}
+  button{
+    background:var(--surface-2);
+    color:var(--text);
+    border:0.5px solid var(--border);
+    border-radius:6px;
+    padding:8px 16px;
+    font-size:14px;
+    cursor:pointer;
+  }
+  button:hover{background:var(--border);}
+  button:disabled{opacity:0.4; cursor:default;}
+  .n-out{font-size:14px; font-weight:500; min-width:20px; display:inline-block;}
+  .array-panel{
+    background:var(--surface);
+    border:0.5px solid var(--border);
+    border-radius:12px;
+    padding:1.25rem;
+    margin-bottom:16px;
+  }
+  .cells{display:flex; gap:6px; flex-wrap:wrap; margin-bottom:16px;}
+  .cell{
+    min-width:44px; height:44px;
+    display:flex; align-items:center; justify-content:center;
+    border-radius:6px;
+    border:0.5px solid var(--border);
+    background:var(--surface-2);
+    color:var(--text);
+    font-size:15px;
+    font-family:'SF Mono', 'Fira Code', monospace;
+    transition:background 0.15s, color 0.15s;
+  }
+  .cell.active{
+    background:var(--accent);
+    color:var(--accent-text);
+    font-weight:600;
+  }
+  .step-label{
+    font-size:14px;
+    color:var(--text);
+    min-height:20px;
+    margin:0 0 6px;
+  }
+  .step-meta{
+    font-size:12px;
+    color:var(--muted);
+    font-family:'SF Mono', 'Fira Code', monospace;
+    min-height:16px;
+  }
+  .step-counter{
+    font-size:12px;
+    color:var(--subtext);
+    margin-top:10px;
+  }
+  .code-panel{
+    background:#181825;
+    border:0.5px solid var(--border);
+    border-radius:12px;
+    overflow:hidden;
+  }
+  .code-header{
+    font-size:12px;
+    color:var(--subtext);
+    padding:10px 16px;
+    border-bottom:0.5px solid var(--border);
+    font-family:'SF Mono', 'Fira Code', monospace;
+  }
+  pre{
+    margin:0;
+    padding:14px 0;
+    overflow-x:auto;
+    font-family:'SF Mono', 'Fira Code', 'Consolas', monospace;
+    font-size:13px;
+    line-height:1.65;
+  }
+  .code-line{
+    display:block;
+    padding:0 16px;
+    white-space:pre;
+    color:var(--subtext);
+  }
+  .code-line .ln{
+    display:inline-block;
+    width:26px;
+    color:var(--muted);
+    user-select:none;
+  }
+  .code-line.hl{
+    background:rgba(249,226,175,0.14);
+    color:var(--line);
+    border-left:2px solid var(--line);
+    padding-left:14px;
+  }
+  .code-line.hl .ln{color:var(--line);}
+  .kw{color:#89b4fa;}
+  .fn{color:#89dceb;}
+  .num{color:#fab387;}
+  .cmt{color:var(--muted); font-style:italic;}
+  .foot{
+    font-size:12px;
+    color:var(--muted);
+    margin-top:24px;
+    text-align:center;
+  }
+  @media (max-width:600px){
+    .cell{min-width:34px; height:34px; font-size:13px;}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>ReOrder Array — 三次反转分治算法</h1>
+  <p class="subtitle">交叉洗牌数组：拆成 A1/A2/B1/B2 四段，用三次反转交换中间两块，再递归处理两半</p>
+
+  <div class="controls-row">
+    <label>数组长度</label>
+    <input type="range" min="4" max="14" value="8" step="1" id="nRange">
+    <span class="n-out" id="nOut">8</span>
+    <button id="prev">◀ 上一步</button>
+    <button id="next">下一步 ▶</button>
+    <button id="reset">重置</button>
+  </div>
+
+  <div class="array-panel">
+    <div class="cells" id="cells"></div>
+    <p class="step-label" id="stepLabel"></p>
+    <p class="step-meta" id="stepMeta"></p>
+    <p class="step-counter" id="stepCounter"></p>
+  </div>
+
+  <div class="code-panel">
+    <div class="code-header">Solution.java</div>
+    <pre id="codeBlock"></pre>
+  </div>
+
+  <p class="foot">拖动滑块改变数组长度，用「上一步 / 下一步」逐行看代码如何执行</p>
+</div>
+
+<script>
+const CODE_LINES = [
+  {n:1,  html:'<span class="kw">public</span> <span class="kw">int</span>[] <span class="fn">reorder</span>(<span class="kw">int</span>[] array) {'},
+  {n:2,  html:'&nbsp;&nbsp;<span class="kw">if</span> (array.length % 2 == 0) {'},
+  {n:3,  html:'&nbsp;&nbsp;&nbsp;&nbsp;<span class="fn">reorder</span>(array, 0, array.length - 1);'},
+  {n:4,  html:'&nbsp;&nbsp;} <span class="kw">else</span> {'},
+  {n:5,  html:'&nbsp;&nbsp;&nbsp;&nbsp;<span class="cmt">// 奇数个元素，忽略最后一个</span>'},
+  {n:6,  html:'&nbsp;&nbsp;&nbsp;&nbsp;<span class="fn">reorder</span>(array, 0, array.length - 2);'},
+  {n:7,  html:'&nbsp;&nbsp;}'},
+  {n:8,  html:'&nbsp;&nbsp;<span class="kw">return</span> array;'},
+  {n:9,  html:'}'},
+  {n:10, html:''},
+  {n:11, html:'<span class="kw">private</span> <span class="kw">void</span> <span class="fn">reorder</span>(<span class="kw">int</span>[] array, <span class="kw">int</span> left, <span class="kw">int</span> right) {'},
+  {n:12, html:'&nbsp;&nbsp;<span class="kw">int</span> length = right - left + 1;'},
+  {n:13, html:'&nbsp;&nbsp;<span class="kw">if</span> (length &lt;= 2) {'},
+  {n:14, html:'&nbsp;&nbsp;&nbsp;&nbsp;<span class="kw">return</span>;&nbsp;&nbsp;<span class="cmt">// 基准情况：不用再拆了</span>'},
+  {n:15, html:'&nbsp;&nbsp;}'},
+  {n:16, html:'&nbsp;&nbsp;<span class="kw">int</span> mid&nbsp;&nbsp;= left + length / 2;'},
+  {n:17, html:'&nbsp;&nbsp;<span class="kw">int</span> lmid = left + length / 4;'},
+  {n:18, html:'&nbsp;&nbsp;<span class="kw">int</span> rmid = left + length * 3 / 4;'},
+  {n:19, html:'&nbsp;&nbsp;<span class="fn">reverse</span>(array, lmid, mid - 1);&nbsp;&nbsp;<span class="cmt">// 反转 A2</span>'},
+  {n:20, html:'&nbsp;&nbsp;<span class="fn">reverse</span>(array, mid, rmid - 1);&nbsp;&nbsp;<span class="cmt">// 反转 B1</span>'},
+  {n:21, html:'&nbsp;&nbsp;<span class="fn">reverse</span>(array, lmid, rmid - 1);&nbsp;<span class="cmt">// 整体反转 = 交换A2/B1</span>'},
+  {n:22, html:'&nbsp;&nbsp;<span class="fn">reorder</span>(array, left, left + (lmid-left)*2 - 1);'},
+  {n:23, html:'&nbsp;&nbsp;<span class="fn">reorder</span>(array, left + (lmid-left)*2, right);'},
+  {n:24, html:'}'},
+  {n:25, html:''},
+  {n:26, html:'<span class="kw">private</span> <span class="kw">void</span> <span class="fn">reverse</span>(<span class="kw">int</span>[] array, <span class="kw">int</span> left, <span class="kw">int</span> right) {'},
+  {n:27, html:'&nbsp;&nbsp;<span class="kw">while</span> (left &lt; right) {'},
+  {n:28, html:'&nbsp;&nbsp;&nbsp;&nbsp;<span class="kw">int</span> tmp = array[left];'},
+  {n:29, html:'&nbsp;&nbsp;&nbsp;&nbsp;array[left] = array[right];'},
+  {n:30, html:'&nbsp;&nbsp;&nbsp;&nbsp;array[right] = tmp;'},
+  {n:31, html:'&nbsp;&nbsp;&nbsp;&nbsp;left++; right--;'},
+  {n:32, html:'&nbsp;&nbsp;}'},
+  {n:33, html:'}'},
+];
+
+let N = 8, base, steps, cur;
+
+function doReverse(arr, l, r) {
+  let i = l, j = r;
+  while (i < j) { const t = arr[i]; arr[i] = arr[j]; arr[j] = t; i++; j--; }
+}
+
+function trace(arr, left, right, steps) {
+  const length = right - left + 1;
+  steps.push({arr: arr.slice(), range:[left,right], lines:[11,12], label:'调用 reorder(array, '+left+', '+right+')', meta:'length = '+length});
+  if (length <= 2) {
+    steps.push({arr: arr.slice(), range:[left,right], lines:[13,14], label:'length ≤ 2，达到基准情况，直接返回', meta:''});
+    return;
+  }
+  const mid = left + Math.floor(length/2);
+  const lmid = left + Math.floor(length/4);
+  const rmid = left + Math.floor(length*3/4);
+  steps.push({arr: arr.slice(), range:[left,right], lines:[16,17,18], label:'计算分割点', meta:'mid='+mid+'  lmid='+lmid+'  rmid='+rmid});
+
+  doReverse(arr, lmid, mid-1);
+  steps.push({arr: arr.slice(), range:[lmid,mid-1], lines:[19], label:'反转 A2 段', meta:'range = ['+lmid+', '+(mid-1)+']'});
+
+  doReverse(arr, mid, rmid-1);
+  steps.push({arr: arr.slice(), range:[mid,rmid-1], lines:[20], label:'反转 B1 段', meta:'range = ['+mid+', '+(rmid-1)+']'});
+
+  doReverse(arr, lmid, rmid-1);
+  steps.push({arr: arr.slice(), range:[lmid,rmid-1], lines:[21], label:'整体反转 → 完成交换 A2 ↔ B1', meta:'range = ['+lmid+', '+(rmid-1)+']'});
+
+  const p = lmid - left;
+  steps.push({arr: arr.slice(), range:[left,left+p*2-1], lines:[22], label:'递归处理左半：interleave(A1, B1)', meta:'range = ['+left+', '+(left+p*2-1)+']'});
+  trace(arr, left, left+p*2-1, steps);
+
+  steps.push({arr: arr.slice(), range:[left+p*2,right], lines:[23], label:'递归处理右半：interleave(A2, B2)', meta:'range = ['+(left+p*2)+', '+right+']'});
+  trace(arr, left+p*2, right, steps);
+}
+
+function build() {
+  N = parseInt(document.getElementById('nRange').value);
+  document.getElementById('nOut').textContent = N;
+  base = [];
+  for (let i = 1; i <= N; i++) base.push(i);
+  steps = [{arr: base.slice(), range:null, lines:[1], label:'初始数组', meta:'array.length = '+N}];
+
+  const arr = base.slice();
+  if (N % 2 === 0) {
+    steps.push({arr: arr.slice(), range:[0,N-1], lines:[2,3], label:'长度为偶数，处理整个数组', meta:''});
+    trace(arr, 0, N-1, steps);
+  } else {
+    steps.push({arr: arr.slice(), range:[0,N-2], lines:[2,4,5,6], label:'长度为奇数，最后一个元素不动', meta:'只处理 [0, '+(N-2)+']'});
+    trace(arr, 0, N-2, steps);
+  }
+  steps.push({arr: arr.slice(), range:null, lines:[8], label:'完成，返回结果', meta:''});
+
+  renderCode();
+  cur = 0;
+  render();
+}
+
+function renderCode() {
+  const codeEl = document.getElementById('codeBlock');
+  codeEl.innerHTML = '';
+  CODE_LINES.forEach(line => {
+    const span = document.createElement('span');
+    span.className = 'code-line';
+    span.id = 'line-' + line.n;
+    span.innerHTML = '<span class="ln">' + line.n + '</span>' + line.html;
+    codeEl.appendChild(span);
+  });
+}
+
+function render() {
+  const s = steps[cur];
+  const cellsEl = document.getElementById('cells');
+  cellsEl.innerHTML = '';
+  for (let i = 0; i < N; i++) {
+    const d = document.createElement('div');
+    d.className = 'cell' + ((s.range && i >= s.range[0] && i <= s.range[1]) ? ' active' : '');
+    d.textContent = s.arr[i];
+    cellsEl.appendChild(d);
+  }
+  document.getElementById('stepLabel').textContent = s.label;
+  document.getElementById('stepMeta').textContent = s.meta || '';
+  document.getElementById('stepCounter').textContent = '第 ' + cur + ' / ' + (steps.length-1) + ' 步';
+
+  CODE_LINES.forEach(line => {
+    const el = document.getElementById('line-' + line.n);
+    el.classList.toggle('hl', s.lines.includes(line.n));
+  });
+  if (s.lines.length) {
+    const target = document.getElementById('line-' + s.lines[0]);
+    if (target) target.scrollIntoView({block:'nearest'});
+  }
+
+  document.getElementById('prev').disabled = (cur === 0);
+  document.getElementById('next').disabled = (cur === steps.length - 1);
+}
+
+document.getElementById('next').onclick = () => { if (cur < steps.length-1) cur++; render(); };
+document.getElementById('prev').onclick = () => { if (cur > 0) cur--; render(); };
+document.getElementById('reset').onclick = () => { cur = 0; render(); };
+document.getElementById('nRange').oninput = build;
+
+build();
+</script>
+</body>
+</html>
