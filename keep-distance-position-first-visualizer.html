@@ -1,0 +1,433 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Keep Distance — 方法1/2：按位置从左到右填</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#0b0d12; --panel:#12151c; --panel-2:#171b24; --line:#262b36;
+    --text:#e9ecf3; --muted:#7c8399;
+    --amber:#ffb454; --green:#8ce99a; --red:#ff6b6b; --gold:#ffe08a;
+    --mono:'JetBrains Mono', ui-monospace, monospace;
+    --display:'Space Grotesk', sans-serif; --body:'Inter', sans-serif;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;background:var(--bg);color:var(--text);font-family:var(--body);}
+  body{min-height:100vh;padding:40px 24px 80px;}
+  .wrap{max-width:1180px;margin:0 auto;}
+
+  header{margin-bottom:34px;}
+  .eyebrow{font-family:var(--mono);font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:var(--gold);margin-bottom:10px;display:flex;align-items:center;gap:10px;}
+  .eyebrow::before{content:"";width:18px;height:1px;background:var(--gold);display:inline-block;}
+  h1{font-family:var(--display);font-weight:700;font-size:clamp(26px,4vw,40px);margin:0 0 12px;letter-spacing:-.01em;line-height:1.15;}
+  h1 span{color:var(--muted);font-weight:500;}
+  .sub{color:var(--muted);font-size:15px;max-width:700px;line-height:1.6;}
+  .sub b{color:var(--text);font-weight:600;}
+  .sub code{font-family:var(--mono);color:var(--gold);font-size:13px;}
+
+  .layout{display:grid;grid-template-columns: 1.35fr .9fr;gap:22px;}
+  @media (max-width:920px){ .layout{grid-template-columns:1fr;} }
+
+  .panel{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:22px;margin-bottom:22px;}
+  .panel-title{font-family:var(--mono);font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-bottom:16px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;}
+
+  .stage{overflow-x:auto;padding:6px 4px;}
+  .track{position:relative;height:80px;min-width:100%;}
+  .cell{
+    position:absolute;top:0;width:48px;height:56px;border-radius:9px;
+    background:var(--panel-2);border:1.5px solid var(--line);
+    display:flex;align-items:center;justify-content:center;
+    font-family:var(--mono);font-size:16px;font-weight:600;color:var(--muted);
+    transition:background .25s ease,border-color .25s ease,box-shadow .25s ease,color .25s ease;
+  }
+  .cell.checking{border-color:var(--amber);box-shadow:0 0 0 2px rgba(255,180,84,.25);}
+  .cell.placed{color:#0d1410;}
+  .cell.backtracking{border-color:var(--red);box-shadow:0 0 0 2px rgba(255,107,107,.3);}
+  .idx-label{position:absolute;top:60px;width:48px;text-align:center;font-family:var(--mono);font-size:10px;color:var(--muted);}
+
+  .used-row{display:flex;gap:8px;flex-wrap:wrap;margin-top:16px;}
+  .used-badge{
+    font-family:var(--mono);font-size:11.5px;padding:6px 11px;border-radius:999px;
+    border:1px solid var(--line);color:var(--muted);background:var(--panel-2);
+    transition:border-color .2s ease,color .2s ease,background .2s ease;
+  }
+  .used-badge.active{border-color:var(--amber);color:var(--text);background:rgba(255,180,84,.08);}
+  .used-badge b{color:var(--gold);}
+
+  .n-control{display:flex;align-items:center;gap:8px;font-family:var(--mono);font-size:12px;color:var(--muted);}
+  .n-control input[type=range]{accent-color:var(--gold);width:110px;}
+
+  .phase-flag{font-family:var(--mono);font-size:12.5px;padding:8px 14px;border-radius:8px;background:var(--panel-2);border:1px solid var(--line);color:var(--text);margin-top:18px;}
+  .phase-flag b{color:var(--gold);}
+  .phase-flag.ok b{color:var(--green);}
+  .phase-flag.bad b{color:var(--red);}
+
+  .progress-row{display:flex;align-items:center;gap:12px;margin-top:16px;}
+  .progress-bar{flex:1;height:4px;background:var(--line);border-radius:2px;overflow:hidden;cursor:pointer;}
+  .progress-fill{height:100%;background:var(--gold);width:0%;transition:width .15s linear;}
+  .step-count{font-family:var(--mono);font-size:11px;color:var(--muted);white-space:nowrap;}
+
+  .controls{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:14px;}
+  button{font-family:var(--mono);font-size:12px;letter-spacing:.03em;background:var(--panel-2);color:var(--text);border:1px solid var(--line);padding:9px 14px;border-radius:9px;cursor:pointer;transition:.15s ease;}
+  button:hover{border-color:var(--gold);color:var(--gold);}
+  button:active{transform:translateY(1px);}
+  button.primary{background:var(--gold);color:#1a1400;border-color:var(--gold);font-weight:600;}
+  button.primary:hover{opacity:.9;color:#1a1400;}
+  button:disabled{opacity:.35;cursor:not-allowed;}
+  button:disabled:hover{border-color:var(--line);color:var(--text);}
+
+  .speed-note{font-family:var(--mono);font-size:11px;color:var(--muted);margin-top:10px;}
+
+  .stack-list{display:flex;flex-direction:column-reverse;gap:6px;min-height:60px;max-height:280px;overflow-y:auto;}
+  .stack-frame{
+    border:1px solid var(--line);background:var(--panel-2);border-radius:9px;
+    padding:8px 14px;font-family:var(--mono);font-size:12px;color:var(--muted);
+    transition:border-color .2s ease,background .2s ease;
+  }
+  .stack-frame.top{border-color:var(--amber);color:var(--text);background:rgba(255,180,84,.06);}
+  .stack-frame.top.ok{border-color:var(--green);background:rgba(140,233,154,.08);}
+  .stack-frame.top.bad{border-color:var(--red);background:rgba(255,107,107,.08);}
+  .stack-frame b{color:var(--gold);}
+  .stack-empty{font-family:var(--mono);font-size:12px;color:var(--muted);padding:10px 0;}
+
+  pre.code{margin:0;font-family:var(--mono);font-size:12px;line-height:1.85;color:#b7bdcc;overflow-x:auto;}
+  .code-line{display:block;padding:1px 10px;border-radius:6px;white-space:pre;}
+  .code-line.active{background:rgba(255,224,138,.12);color:var(--gold);box-shadow:inset 2px 0 0 var(--gold);}
+  .code-line.active.ok{background:rgba(140,233,154,.12);color:var(--green);box-shadow:inset 2px 0 0 var(--green);}
+  .code-line.active.bad{background:rgba(255,107,107,.12);color:var(--red);box-shadow:inset 2px 0 0 var(--red);}
+  .code-line .kw{color:#c792ea;} .code-line .fn{color:#82aaff;} .code-line .cm{color:#5c6370;font-style:italic;} .code-line .nm{color:#f78c6c;}
+
+  .note{font-size:13px;color:var(--muted);line-height:1.75;}
+  .note b{color:var(--text);}
+  .note code{font-family:var(--mono);color:var(--gold);font-size:12.5px;}
+
+  .legend-row{display:flex;gap:14px;flex-wrap:wrap;margin-top:14px;font-family:var(--mono);font-size:11px;color:var(--muted);}
+  .legend-item{display:flex;align-items:center;gap:6px;}
+  .sw{width:12px;height:12px;border-radius:3px;display:inline-block;}
+
+  footer{margin-top:44px;text-align:center;color:var(--muted);font-size:12px;font-family:var(--mono);}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <div class="eyebrow">LaiCode 264 · Keep Distance (Method 2, position-first)</div>
+    <h1>Keep Distance <span>— 站在"位置"的角度问：这一格该填谁？</span></h1>
+    <p class="sub">
+      跟方法3（数字倒着放）完全反过来：这里<b>从左到右，一格一格</b>决定内容——
+      格子的顺序是固定的（<code>index</code> 只会往前走，不会跳），不确定的是<b>该往这一格塞哪个数字</b>。
+      靠 <code>used[]</code> 记录每个数字放了几次，猜错了就回溯换下一个候选数字。
+    </p>
+  </header>
+
+  <div class="layout">
+
+    <div>
+      <div class="panel">
+        <div class="panel-title">
+          <span>数组 · ARRAY (length = 2k，从左到右填)</span>
+          <div class="n-control"><span>k</span><input type="range" id="kSlider" min="2" max="4" step="1" value="3"><span id="kValue">3</span></div>
+        </div>
+
+        <div class="stage"><div class="track" id="track"></div></div>
+
+        <div class="used-row" id="usedRow"></div>
+
+        <div class="phase-flag" id="phaseFlag">准备开始</div>
+
+        <div class="progress-row">
+          <div class="progress-bar" id="progressBar"><div class="progress-fill" id="progressFill"></div></div>
+          <span class="step-count" id="stepCount">0 / 0</span>
+        </div>
+        <div class="controls">
+          <button id="resetBtn">↺ 重置</button>
+          <button id="prevBtn">← 上一步</button>
+          <button id="nextBtn" class="primary">下一步 →</button>
+          <button id="playBtn">▶ 播放</button>
+          <button id="fastBtn">⏩ 快速播放</button>
+        </div>
+        <div class="speed-note">k=3 大约需要 60+ 步才能找到解 —— 对比方法3只需要一次回溯，这就是"按位置猜"比"按数字定"要多试很多次的直接证据。</div>
+
+        <div class="legend-row">
+          <div class="legend-item"><span class="sw" style="background:var(--amber)"></span>正在尝试候选数字</div>
+          <div class="legend-item"><span class="sw" style="background:var(--green)"></span>已放置</div>
+          <div class="legend-item"><span class="sw" style="background:var(--red)"></span>回溯撤销</div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-title"><span>调用栈 · CALL STACK（每一层对应一个 index）</span></div>
+        <div class="stack-list" id="stackList"><div class="stack-empty">尚未开始</div></div>
+      </div>
+    </div>
+
+    <div>
+      <div class="panel">
+        <div class="panel-title"><span>代码 · helper2(index)</span></div>
+        <pre class="code" id="codeBlock"></pre>
+      </div>
+
+      <div class="panel">
+        <div class="panel-title"><span>跟方法3的关键区别</span></div>
+        <div class="note">
+          方法3是"数字确定要放，位置靠试"——每次一确定就能锁定<b>一对</b>位置，试错次数少。
+          <br><br>
+          这里（方法1/2）是"位置确定要填，数字靠试"——<code>index</code> 从0到2k-1固定顺序走，
+          但每一格要在 1~k 里挨个试候选数字，猜错了就回溯换下一个候选。
+          由于不知道后面的格子需要什么数字，经常要试很多次、回溯很多层才能凑对，
+          这也是为什么这个方法的步数比方法3多得多。
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <footer>built for personal review · keep distance for identical elements, position-first backtracking (method 1/2)</footer>
+</div>
+
+<script>
+const PALETTE = ['#4fd8c4','#ffb454','#9b9bff','#ff8fc7','#7ec8ff','#8ce99a'];
+const CELL_W = 48, GAP = 8, STEP = CELL_W + GAP;
+
+const state = { k:3, steps:[], idx:-1, playing:false, timer:null };
+
+const CODE_LINES = [
+  {id:'sig',    html:'<span class="fn">helper2</span>(index) {'},
+  {id:'base',   html:'  <span class="kw">if</span> (index == array.length) <span class="kw">return</span> <span class="kw">true</span>;  <span class="cm">// 填满了</span>'},
+  {id:'loopline',html:'  <span class="kw">for</span> (i = 1; i &lt;= k; i++) {  <span class="cm">// 这一格试试数字 i</span>'},
+  {id:'condline',html:'    <span class="kw">if</span> (used[i]==0 || (used[i]==1 &amp;&amp; index&gt;i &amp;&amp; array[index-i-1]==i)) {'},
+  {id:'placeline',html:'      array[index] = i;  used[i]++;  <span class="cm">// 占位</span>'},
+  {id:'recurseline',html:'      <span class="kw">if</span> (<span class="fn">helper2</span>(index+1)) <span class="kw">return</span> <span class="kw">true</span>;'},
+  {id:'undoline',html:'      used[i]--;  array[index]=0;  <span class="cm">// 回溯：撤销</span>'},
+  {id:'failline',html:'  <span class="kw">return</span> <span class="kw">false</span>;  <span class="cm">// 这一格试完所有数字仍失败</span>'},
+  {id:'end',    html:'}'},
+];
+
+function simulate(k){
+  const len = 2*k;
+  let array = new Array(len).fill(0);
+  let used = new Array(k+1).fill(0);
+  const steps = [];
+  const snap = (phase, extra) => steps.push({phase, array:[...array], used:[...used], ...(extra||{})});
+
+  function helper(index){
+    if(index === len){ snap('success', {index}); return true; }
+    snap('enterIndex', {index});
+    for(let i=1; i<=k; i++){
+      snap('check', {index, i});
+      const cond = used[i]===0 || (used[i]===1 && index>i && array[index-i-1]===i);
+      if(cond){
+        array[index]=i; used[i]++;
+        snap('place', {index, i});
+        snap('recurseCall', {index, i});
+        if(helper(index+1)){ return true; }
+        used[i]--; array[index]=0;
+        snap('backtrack', {index, i});
+      } else {
+        snap('skip', {index, i});
+      }
+    }
+    snap('fail', {index});
+    return false;
+  }
+
+  const ok = helper(0);
+  snap(ok ? 'done' : 'nosolution', {});
+  return steps;
+}
+
+function buildSkeleton(k){
+  const track = document.getElementById('track');
+  track.innerHTML = '';
+  const len = 2*k;
+  const width = len*STEP - GAP;
+  track.style.minWidth = width+'px';
+  for(let i=0;i<len;i++){
+    const cell = document.createElement('div');
+    cell.className = 'cell';
+    cell.id = 'cell-'+i;
+    cell.style.left = (i*STEP)+'px';
+    track.appendChild(cell);
+
+    const label = document.createElement('div');
+    label.className = 'idx-label';
+    label.style.left = (i*STEP)+'px';
+    label.textContent = i;
+    track.appendChild(label);
+  }
+
+  const usedRow = document.getElementById('usedRow');
+  usedRow.innerHTML = '';
+  for(let i=1;i<=k;i++){
+    const badge = document.createElement('div');
+    badge.className = 'used-badge';
+    badge.id = 'used-'+i;
+    usedRow.appendChild(badge);
+  }
+}
+
+function render(){
+  const k = state.k;
+  const len = 2*k;
+  const step = state.idx>=0 ? state.steps[state.idx] : {phase:'idle', array:new Array(len).fill(0), used:new Array(k+1).fill(0)};
+  const arr = step.array, used = step.used;
+
+  for(let i=0;i<len;i++){
+    const el = document.getElementById('cell-'+i);
+    el.classList.remove('checking','placed','backtracking');
+    if(arr[i] === 0){
+      el.textContent = '';
+      el.style.background = '';
+    } else {
+      el.textContent = arr[i];
+      el.style.background = PALETTE[(arr[i]-1) % PALETTE.length];
+      el.classList.add('placed');
+    }
+  }
+
+  if(step.index != null && step.index < len){
+    const el = document.getElementById('cell-'+step.index);
+    if(step.phase==='check' || step.phase==='skip' || step.phase==='enterIndex'){
+      el.classList.add('checking');
+    } else if(step.phase==='place' || step.phase==='recurseCall'){
+      el.classList.add('placed');
+      el.style.background = PALETTE[(step.i-1)%PALETTE.length];
+      el.textContent = step.i;
+    } else if(step.phase==='backtrack'){
+      el.classList.add('backtracking');
+    }
+  }
+
+  for(let i=1;i<=k;i++){
+    const badge = document.getElementById('used-'+i);
+    badge.classList.toggle('active', step.i === i);
+    badge.innerHTML = `used[${i}]=<b>${used[i]}</b>`;
+  }
+
+  const lineMap = {
+    idle:'sig', enterIndex:'loopline', check:'condline', skip:'condline',
+    place:'placeline', recurseCall:'recurseline', backtrack:'undoline',
+    fail:'failline', success:'base', done:null, nosolution:null
+  };
+  const codeState = step.phase==='success'||step.phase==='done' ? 'ok' : (step.phase==='fail'||step.phase==='backtrack'||step.phase==='nosolution' ? 'bad' : '');
+  document.querySelectorAll('.code-line').forEach(el=>{
+    el.classList.remove('active','ok','bad');
+    if(el.dataset.id === lineMap[step.phase]){
+      el.classList.add('active');
+      if(codeState) el.classList.add(codeState);
+    }
+  });
+
+  const PHASE_TEXT = {
+    idle: '准备开始 — 点击"下一步"启动',
+    enterIndex: `开始为位置 <b>index=${step.index}</b> 挑数字`,
+    check: `试一下数字 <b>${step.i}</b> 能不能放进 index=${step.index}`,
+    skip: `数字 <b>${step.i}</b> 不满足条件（用完了，或者位置不对），跳过`,
+    place: `数字 <b>${step.i}</b> 可以放 → 放进 index=${step.index}`,
+    recurseCall: `立刻递归，去为 <b>index=${step.index+1}</b> 挑数字`,
+    backtrack: `index=${step.index+1} 那边全试失败了 → 撤销刚放的数字 <b>${step.i}</b>`,
+    fail: `index=<b>${step.index}</b> 把1~k都试完了，全部失败 → 向上返回 false`,
+    success: `index 到头了，全部填满 ✓`,
+    done: `全部完成，找到合法排列 ✓`,
+    nosolution: `所有可能都试过了，k=${k} 不存在合法排列`,
+  };
+  const flagEl = document.getElementById('phaseFlag');
+  flagEl.innerHTML = PHASE_TEXT[step.phase] || '';
+  flagEl.className = 'phase-flag' + (step.phase==='success'||step.phase==='done' ? ' ok' : (step.phase==='fail'||step.phase==='backtrack'||step.phase==='nosolution' ? ' bad' : ''));
+
+  const stackList = document.getElementById('stackList');
+  let maxDepth = step.index;
+  if(step.phase === 'done' || step.phase === 'nosolution'){ maxDepth = -1; }
+  if(maxDepth == null || maxDepth < 0){
+    stackList.innerHTML = '<div class="stack-empty">' + (step.phase==='idle' ? '尚未开始' : '递归已结束') + '</div>';
+  } else {
+    let html = '';
+    const start = Math.max(0, maxDepth-9);
+    for(let d=start; d<=maxDepth; d++){
+      const isTop = d === maxDepth;
+      let cls = 'stack-frame' + (isTop ? ' top' : '');
+      let detail = '';
+      if(isTop){
+        if(step.phase==='check') detail = ` — 试 i=${step.i}`;
+        else if(step.phase==='skip') detail = ` — i=${step.i} 不满足条件`;
+        else if(step.phase==='place') detail = ` — 放置 ${step.i}`;
+        else if(step.phase==='recurseCall') detail = ` — 已放置，往下递归`;
+        else if(step.phase==='backtrack'){ detail = ` — 撤销 ${step.i}`; cls += ' bad'; }
+        else if(step.phase==='fail'){ detail = ` — 全部失败`; cls += ' bad'; }
+        else if(step.phase==='success'){ detail = ` — 完成！`; cls += ' ok'; }
+        else if(step.phase==='enterIndex') detail = ` — 开始扫描候选数字`;
+      }
+      html += `<div class="${cls}">helper2(index=<b>${d}</b>)${detail}</div>`;
+    }
+    stackList.innerHTML = html;
+  }
+
+  const total = state.steps.length;
+  const pct = total ? Math.min(100, ((state.idx+1)/total)*100) : 0;
+  document.getElementById('progressFill').style.width = pct+'%';
+  document.getElementById('stepCount').textContent = `${Math.max(0,state.idx+1)} / ${total}`;
+  document.getElementById('prevBtn').disabled = state.idx <= -1;
+  document.getElementById('nextBtn').disabled = state.idx >= total-1;
+  if(state.idx >= total-1) stopPlay();
+}
+
+function buildCodePanel(){
+  const pre = document.getElementById('codeBlock');
+  pre.innerHTML = CODE_LINES.map(l=>`<span class="code-line" data-id="${l.id}">${l.html}</span>`).join('\n');
+}
+
+function init(k){
+  state.k = k;
+  state.steps = simulate(k);
+  state.idx = -1;
+  buildSkeleton(k);
+  buildCodePanel();
+  render();
+}
+
+function goNext(){ if(state.idx < state.steps.length-1){ state.idx++; render(); } }
+function goPrev(){ if(state.idx > -1){ state.idx--; render(); } }
+function goReset(){ state.idx = -1; render(); stopPlay(); }
+
+function stopPlay(){
+  state.playing=false;
+  document.getElementById('playBtn').textContent='▶ 播放';
+  if(state.timer){ clearInterval(state.timer); state.timer=null; }
+}
+function startPlay(speed){
+  if(state.idx >= state.steps.length-1) goReset();
+  state.playing=true;
+  document.getElementById('playBtn').textContent='⏸ 暂停';
+  state.timer = setInterval(()=>{
+    if(state.idx >= state.steps.length-1){ stopPlay(); return; }
+    goNext();
+  }, speed || 260);
+}
+
+document.getElementById('nextBtn').addEventListener('click', ()=>{ stopPlay(); goNext(); });
+document.getElementById('prevBtn').addEventListener('click', ()=>{ stopPlay(); goPrev(); });
+document.getElementById('resetBtn').addEventListener('click', goReset);
+document.getElementById('playBtn').addEventListener('click', ()=>{ state.playing?stopPlay():startPlay(260); });
+document.getElementById('fastBtn').addEventListener('click', ()=>{ stopPlay(); startPlay(40); });
+document.getElementById('progressBar').addEventListener('click',(e)=>{
+  stopPlay();
+  const rect=e.currentTarget.getBoundingClientRect();
+  const pct=(e.clientX-rect.left)/rect.width;
+  const target=Math.round(pct*(state.steps.length-1));
+  state.idx=Math.max(-1, Math.min(state.steps.length-1, target));
+  render();
+});
+document.getElementById('kSlider').addEventListener('input',(e)=>{
+  const k = parseInt(e.target.value,10);
+  document.getElementById('kValue').textContent = k;
+  stopPlay(); init(k);
+});
+
+init(state.k);
+</script>
+</body>
+</html>
