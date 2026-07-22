@@ -1,0 +1,406 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Keep Distance For Identical Elements — 回溯是怎么试错和撤销的</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#0b0d12; --panel:#12151c; --panel-2:#171b24; --line:#262b36;
+    --text:#e9ecf3; --muted:#7c8399;
+    --amber:#ffb454; --green:#8ce99a; --red:#ff6b6b; --gold:#ffe08a;
+    --mono:'JetBrains Mono', ui-monospace, monospace;
+    --display:'Space Grotesk', sans-serif; --body:'Inter', sans-serif;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;background:var(--bg);color:var(--text);font-family:var(--body);}
+  body{min-height:100vh;padding:40px 24px 80px;}
+  .wrap{max-width:1180px;margin:0 auto;}
+
+  header{margin-bottom:34px;}
+  .eyebrow{font-family:var(--mono);font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:var(--gold);margin-bottom:10px;display:flex;align-items:center;gap:10px;}
+  .eyebrow::before{content:"";width:18px;height:1px;background:var(--gold);display:inline-block;}
+  h1{font-family:var(--display);font-weight:700;font-size:clamp(26px,4vw,40px);margin:0 0 12px;letter-spacing:-.01em;line-height:1.15;}
+  h1 span{color:var(--muted);font-weight:500;}
+  .sub{color:var(--muted);font-size:15px;max-width:700px;line-height:1.6;}
+  .sub b{color:var(--text);font-weight:600;}
+  .sub code{font-family:var(--mono);color:var(--gold);font-size:13px;}
+
+  .layout{display:grid;grid-template-columns: 1.35fr .9fr;gap:22px;}
+  @media (max-width:920px){ .layout{grid-template-columns:1fr;} }
+
+  .panel{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:22px;margin-bottom:22px;}
+  .panel-title{font-family:var(--mono);font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-bottom:16px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;}
+
+  .stage{overflow-x:auto;padding:6px 4px;}
+  .track{position:relative;height:80px;min-width:100%;}
+  .cell{
+    position:absolute;top:0;width:48px;height:56px;border-radius:9px;
+    background:var(--panel-2);border:1.5px solid var(--line);
+    display:flex;align-items:center;justify-content:center;
+    font-family:var(--mono);font-size:16px;font-weight:600;color:var(--muted);
+    transition:background .25s ease,border-color .25s ease,box-shadow .25s ease,color .25s ease;
+  }
+  .cell.checking{border-color:var(--amber);box-shadow:0 0 0 2px rgba(255,180,84,.25);}
+  .cell.placed{color:#0d1410;}
+  .cell.backtracking{border-color:var(--red);box-shadow:0 0 0 2px rgba(255,107,107,.3);}
+  .idx-label{position:absolute;top:60px;width:48px;text-align:center;font-family:var(--mono);font-size:10px;color:var(--muted);}
+
+  .n-control{display:flex;align-items:center;gap:8px;font-family:var(--mono);font-size:12px;color:var(--muted);}
+  .n-control input[type=range]{accent-color:var(--gold);width:110px;}
+
+  .phase-flag{font-family:var(--mono);font-size:12.5px;padding:8px 14px;border-radius:8px;background:var(--panel-2);border:1px solid var(--line);color:var(--text);margin-top:18px;}
+  .phase-flag b{color:var(--gold);}
+  .phase-flag.ok b{color:var(--green);}
+  .phase-flag.bad b{color:var(--red);}
+
+  .progress-row{display:flex;align-items:center;gap:12px;margin-top:16px;}
+  .progress-bar{flex:1;height:4px;background:var(--line);border-radius:2px;overflow:hidden;cursor:pointer;}
+  .progress-fill{height:100%;background:var(--gold);width:0%;transition:width .15s linear;}
+  .step-count{font-family:var(--mono);font-size:11px;color:var(--muted);white-space:nowrap;}
+
+  .controls{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:14px;}
+  button{font-family:var(--mono);font-size:12px;letter-spacing:.03em;background:var(--panel-2);color:var(--text);border:1px solid var(--line);padding:9px 14px;border-radius:9px;cursor:pointer;transition:.15s ease;}
+  button:hover{border-color:var(--gold);color:var(--gold);}
+  button:active{transform:translateY(1px);}
+  button.primary{background:var(--gold);color:#1a1400;border-color:var(--gold);font-weight:600;}
+  button.primary:hover{opacity:.9;color:#1a1400;}
+  button:disabled{opacity:.35;cursor:not-allowed;}
+  button:disabled:hover{border-color:var(--line);color:var(--text);}
+
+  .stack-list{display:flex;flex-direction:column-reverse;gap:8px;min-height:60px;}
+  .stack-frame{
+    border:1px solid var(--line);background:var(--panel-2);border-radius:9px;
+    padding:10px 14px;font-family:var(--mono);font-size:12.5px;color:var(--muted);
+    transition:border-color .2s ease,background .2s ease;
+  }
+  .stack-frame.top{border-color:var(--amber);color:var(--text);background:rgba(255,180,84,.06);}
+  .stack-frame.top.ok{border-color:var(--green);background:rgba(140,233,154,.08);}
+  .stack-frame.top.bad{border-color:var(--red);background:rgba(255,107,107,.08);}
+  .stack-frame b{color:var(--gold);}
+  .stack-empty{font-family:var(--mono);font-size:12px;color:var(--muted);padding:10px 0;}
+
+  pre.code{margin:0;font-family:var(--mono);font-size:12.5px;line-height:1.85;color:#b7bdcc;overflow-x:auto;}
+  .code-line{display:block;padding:1px 10px;border-radius:6px;white-space:pre;}
+  .code-line.active{background:rgba(255,224,138,.12);color:var(--gold);box-shadow:inset 2px 0 0 var(--gold);}
+  .code-line.active.ok{background:rgba(140,233,154,.12);color:var(--green);box-shadow:inset 2px 0 0 var(--green);}
+  .code-line.active.bad{background:rgba(255,107,107,.12);color:var(--red);box-shadow:inset 2px 0 0 var(--red);}
+  .code-line .kw{color:#c792ea;} .code-line .fn{color:#82aaff;} .code-line .cm{color:#5c6370;font-style:italic;} .code-line .nm{color:#f78c6c;}
+
+  .note{font-size:13px;color:var(--muted);line-height:1.75;}
+  .note b{color:var(--text);}
+  .note code{font-family:var(--mono);color:var(--gold);font-size:12.5px;}
+
+  .legend-row{display:flex;gap:14px;flex-wrap:wrap;margin-top:14px;font-family:var(--mono);font-size:11px;color:var(--muted);}
+  .legend-item{display:flex;align-items:center;gap:6px;}
+  .sw{width:12px;height:12px;border-radius:3px;display:inline-block;}
+
+  footer{margin-top:44px;text-align:center;color:var(--muted);font-size:12px;font-family:var(--mono);}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <div class="eyebrow">LaiCode 264 · Keep Distance For Identical Elements (Method 3)</div>
+    <h1>Keep Distance <span>— 从k倒着放，试错就撤销</span></h1>
+    <p class="sub">
+      从最大的数字 <code>k</code> 开始往小放：每个数字扫描所有位置对 <code>(i, i+n+1)</code>，
+      两个位置都空就先占上，<b>立刻递归去放下一个更小的数字</b>；如果后面怎么放都失败，
+      就<b>撤销这次占用（回溯）</b>，换下一个位置继续试——这就是你感觉到的"DFS"。
+    </p>
+  </header>
+
+  <div class="layout">
+
+    <div>
+      <div class="panel">
+        <div class="panel-title">
+          <span>数组 · ARRAY (length = 2k)</span>
+          <div class="n-control"><span>k</span><input type="range" id="kSlider" min="2" max="6" step="1" value="4"><span id="kValue">4</span></div>
+        </div>
+
+        <div class="stage"><div class="track" id="track"></div></div>
+
+        <div class="phase-flag" id="phaseFlag">准备开始</div>
+
+        <div class="progress-row">
+          <div class="progress-bar" id="progressBar"><div class="progress-fill" id="progressFill"></div></div>
+          <span class="step-count" id="stepCount">0 / 0</span>
+        </div>
+        <div class="controls">
+          <button id="resetBtn">↺ 重置</button>
+          <button id="prevBtn">← 上一步</button>
+          <button id="nextBtn" class="primary">下一步 →</button>
+          <button id="playBtn">▶ 播放</button>
+        </div>
+
+        <div class="legend-row">
+          <div class="legend-item"><span class="sw" style="background:var(--amber)"></span>正在检查</div>
+          <div class="legend-item"><span class="sw" style="background:var(--green)"></span>已放置</div>
+          <div class="legend-item"><span class="sw" style="background:var(--red)"></span>回溯撤销</div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-title"><span>调用栈 · CALL STACK（越往上递归越深）</span></div>
+        <div class="stack-list" id="stackList"><div class="stack-empty">尚未开始</div></div>
+      </div>
+    </div>
+
+    <div>
+      <div class="panel">
+        <div class="panel-title"><span>代码 · helper3(n)</span></div>
+        <pre class="code" id="codeBlock"></pre>
+      </div>
+
+      <div class="panel">
+        <div class="panel-title"><span>为什么感觉像 DFS</span></div>
+        <div class="note">
+          没错，这就是标准的<b>回溯（backtracking）</b>，本质上就是 DFS：每次"放置"就是往下探一层（递归调用更小的n），
+          每次"撤销"就是从这一层退回去（清空刚才占的位置，换下一个候选继续试）。
+          调用栈面板里看到的每一帧，就是 DFS 递归树里的一个节点——往上长是递归深入，弹出（变红）是回溯。
+          <br><br>
+          k=4 默认会触发一次真实的回溯：数字2第一次尝试的位置能放下，但会导致数字1无路可走，
+          于是数字2被撤销，换下一个位置重试，最终成功。可以调小 k 到 2，看看"全部位置都试完仍然失败"（无解）是什么样子。
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <footer>built for personal review · keep distance for identical elements, backtracking with undo</footer>
+</div>
+
+<script>
+const PALETTE = ['#4fd8c4','#ffb454','#9b9bff','#ff8fc7','#7ec8ff','#8ce99a'];
+const CELL_W = 48, GAP = 8, STEP = CELL_W + GAP;
+
+const state = { k:4, steps:[], idx:-1, playing:false, timer:null };
+
+const CODE_LINES = [
+  {id:'sig',    html:'<span class="fn">helper3</span>(n) {'},
+  {id:'base',   html:'  <span class="kw">if</span> (n == <span class="nm">0</span>) <span class="kw">return</span> <span class="kw">true</span>;  <span class="cm">// 全部放完</span>'},
+  {id:'loopline',html:'  <span class="kw">for</span> (i = 0; i &lt; len-n-1; i++) {'},
+  {id:'condline',html:'    <span class="kw">if</span> (array[i]==0 &amp;&amp; array[i+n+1]==0) {'},
+  {id:'placeline',html:'      array[i] = n;  array[i+n+1] = n;  <span class="cm">// 占位</span>'},
+  {id:'recurseline',html:'      <span class="kw">if</span> (<span class="fn">helper3</span>(n-1)) <span class="kw">return</span> <span class="kw">true</span>;'},
+  {id:'undoline',html:'      array[i]=0; array[i+n+1]=0;  <span class="cm">// 回溯：撤销</span>'},
+  {id:'failline',html:'  <span class="kw">return</span> <span class="kw">false</span>;  <span class="cm">// 所有位置都试完，仍失败</span>'},
+  {id:'end',    html:'}'},
+];
+
+function simulate(k){
+  const n2 = 2*k;
+  let array = new Array(n2).fill(0);
+  const steps = [];
+  const snap = (phase, extra) => steps.push({phase, array:[...array], ...(extra||{})});
+
+  function helper(n, depth){
+    if(n === 0){ snap('success', {depth}); return true; }
+    snap('enterLevel', {n, depth});
+    for(let i=0; i<n2-n-1; i++){
+      snap('check', {n, depth, i, j:i+n+1});
+      if(array[i]===0 && array[i+n+1]===0){
+        array[i]=n; array[i+n+1]=n;
+        snap('place', {n, depth, i, j:i+n+1});
+        snap('recurseCall', {n, depth, i, j:i+n+1});
+        if(helper(n-1, depth+1)){ return true; }
+        array[i]=0; array[i+n+1]=0;
+        snap('backtrack', {n, depth, i, j:i+n+1});
+      } else {
+        snap('skip', {n, depth, i, j:i+n+1});
+      }
+    }
+    snap('fail', {n, depth});
+    return false;
+  }
+
+  const ok = helper(k, 0);
+  snap(ok ? 'done' : 'nosolution', {});
+  return steps;
+}
+
+function buildSkeleton(k){
+  const track = document.getElementById('track');
+  track.innerHTML = '';
+  const n2 = 2*k;
+  const width = n2*STEP - GAP;
+  track.style.minWidth = width+'px';
+  for(let i=0;i<n2;i++){
+    const cell = document.createElement('div');
+    cell.className = 'cell';
+    cell.id = 'cell-'+i;
+    cell.textContent = '';
+    cell.style.left = (i*STEP)+'px';
+    track.appendChild(cell);
+
+    const label = document.createElement('div');
+    label.className = 'idx-label';
+    label.style.left = (i*STEP)+'px';
+    label.textContent = i;
+    track.appendChild(label);
+  }
+}
+
+function render(){
+  const k = state.k;
+  const n2 = 2*k;
+  const step = state.idx>=0 ? state.steps[state.idx] : {phase:'idle', array:new Array(n2).fill(0)};
+  const arr = step.array;
+
+  for(let i=0;i<n2;i++){
+    const el = document.getElementById('cell-'+i);
+    el.classList.remove('checking','placed','backtracking');
+    if(arr[i] === 0){
+      el.textContent = '';
+      el.style.background = '';
+      el.style.color = '';
+    } else {
+      el.textContent = arr[i];
+      el.style.background = PALETTE[(arr[i]-1) % PALETTE.length];
+      el.classList.add('placed');
+    }
+  }
+
+  if(step.i != null){
+    const elI = document.getElementById('cell-'+step.i);
+    const elJ = document.getElementById('cell-'+step.j);
+    if(['check','skip'].includes(step.phase)){
+      elI.classList.add('checking'); elJ.classList.add('checking');
+    } else if(step.phase === 'place' || step.phase === 'recurseCall'){
+      elI.classList.add('placed'); elJ.classList.add('placed');
+      elI.style.background = PALETTE[(step.n-1)%PALETTE.length];
+      elJ.style.background = PALETTE[(step.n-1)%PALETTE.length];
+      elI.textContent = step.n; elJ.textContent = step.n;
+    } else if(step.phase === 'backtrack'){
+      elI.classList.add('backtracking'); elJ.classList.add('backtracking');
+    }
+  }
+
+  const lineMap = {
+    idle:'sig', enterLevel:'loopline', check:'condline', skip:'condline',
+    place:'placeline', recurseCall:'recurseline', backtrack:'undoline',
+    fail:'failline', success:'base', done:null, nosolution:null
+  };
+  const codeState = step.phase==='success'||step.phase==='done' ? 'ok' : (step.phase==='fail'||step.phase==='backtrack'||step.phase==='nosolution' ? 'bad' : '');
+  document.querySelectorAll('.code-line').forEach(el=>{
+    el.classList.remove('active','ok','bad');
+    if(el.dataset.id === lineMap[step.phase]){
+      el.classList.add('active');
+      if(codeState) el.classList.add(codeState);
+    }
+  });
+
+  const PHASE_TEXT = {
+    idle: '准备开始 — 点击"下一步"启动',
+    enterLevel: `开始为数字 <b>${step.n}</b> 寻找位置（递归深度 ${step.depth}）`,
+    check: `检查位置 i=<b>${step.i}</b> 和 i+n+1=<b>${step.j}</b> 是否都空着`,
+    skip: `位置 <b>${step.i},${step.j}</b> 已被占用，跳过`,
+    place: `两个位置都空 → 放置数字 <b>${step.n}</b> 在 ${step.i} 和 ${step.j}`,
+    recurseCall: `立刻递归，去为数字 <b>${step.n-1}</b> 找位置`,
+    backtrack: `数字 <b>${step.n+0}</b> 之后的递归失败了 → 撤销刚才在 ${step.i},${step.j} 的放置`,
+    fail: `数字 <b>${step.n}</b> 试完了所有位置，全部失败 → 向上返回 false`,
+    success: `n=0，所有数字都放置成功 ✓`,
+    done: `全部完成，找到合法排列 ✓`,
+    nosolution: `所有可能都试过了，k=${k} 不存在合法排列，返回 null`,
+  };
+  const flagEl = document.getElementById('phaseFlag');
+  flagEl.innerHTML = PHASE_TEXT[step.phase] || '';
+  flagEl.className = 'phase-flag' + (step.phase==='success'||step.phase==='done' ? ' ok' : (step.phase==='fail'||step.phase==='backtrack'||step.phase==='nosolution' ? ' bad' : ''));
+
+  // call stack: depth 0..step.depth (or full for success/fail edge), n = k - depth
+  const stackList = document.getElementById('stackList');
+  let maxDepth = step.depth;
+  if(step.phase === 'done' || step.phase === 'nosolution'){ maxDepth = -1; }
+  if(maxDepth == null){ maxDepth = -1; }
+  if(maxDepth < 0){
+    stackList.innerHTML = '<div class="stack-empty">' + (step.phase==='idle' ? '尚未开始' : '递归已结束') + '</div>';
+  } else {
+    let html = '';
+    for(let d=0; d<=maxDepth; d++){
+      const nAtD = k - d;
+      const isTop = d === maxDepth;
+      let cls = 'stack-frame' + (isTop ? ' top' : '');
+      let detail = '';
+      if(isTop){
+        if(step.phase==='check') detail = ` — 试 i=${step.i}`;
+        else if(step.phase==='skip') detail = ` — i=${step.i} 被占用，跳过`;
+        else if(step.phase==='place') detail = ` — 占用 ${step.i},${step.j}`;
+        else if(step.phase==='recurseCall') detail = ` — 已放置，往下递归`;
+        else if(step.phase==='backtrack'){ detail = ` — 撤销 ${step.i},${step.j}`; cls += ' bad'; }
+        else if(step.phase==='fail'){ detail = ` — 全部失败`; cls += ' bad'; }
+        else if(step.phase==='success'){ detail = ` — 完成！`; cls += ' ok'; }
+        else if(step.phase==='enterLevel') detail = ` — 开始扫描位置`;
+      }
+      html += `<div class="${cls}">helper3(n=<b>${nAtD}</b>)${detail}</div>`;
+    }
+    stackList.innerHTML = html;
+  }
+
+  const total = state.steps.length;
+  const pct = total ? Math.min(100, ((state.idx+1)/total)*100) : 0;
+  document.getElementById('progressFill').style.width = pct+'%';
+  document.getElementById('stepCount').textContent = `${Math.max(0,state.idx+1)} / ${total}`;
+  document.getElementById('prevBtn').disabled = state.idx <= -1;
+  document.getElementById('nextBtn').disabled = state.idx >= total-1;
+  if(state.idx >= total-1) stopPlay();
+}
+
+function buildCodePanel(){
+  const pre = document.getElementById('codeBlock');
+  pre.innerHTML = CODE_LINES.map(l=>`<span class="code-line" data-id="${l.id}">${l.html}</span>`).join('\n');
+}
+
+function init(k){
+  state.k = k;
+  state.steps = simulate(k);
+  state.idx = -1;
+  buildSkeleton(k);
+  buildCodePanel();
+  render();
+}
+
+function goNext(){ if(state.idx < state.steps.length-1){ state.idx++; render(); } }
+function goPrev(){ if(state.idx > -1){ state.idx--; render(); } }
+function goReset(){ state.idx = -1; render(); stopPlay(); }
+
+function stopPlay(){
+  state.playing=false;
+  document.getElementById('playBtn').textContent='▶ 播放';
+  if(state.timer){ clearInterval(state.timer); state.timer=null; }
+}
+function startPlay(){
+  if(state.idx >= state.steps.length-1) goReset();
+  state.playing=true;
+  document.getElementById('playBtn').textContent='⏸ 暂停';
+  state.timer = setInterval(()=>{
+    if(state.idx >= state.steps.length-1){ stopPlay(); return; }
+    goNext();
+  }, 550);
+}
+
+document.getElementById('nextBtn').addEventListener('click', ()=>{ stopPlay(); goNext(); });
+document.getElementById('prevBtn').addEventListener('click', ()=>{ stopPlay(); goPrev(); });
+document.getElementById('resetBtn').addEventListener('click', goReset);
+document.getElementById('playBtn').addEventListener('click', ()=>{ state.playing?stopPlay():startPlay(); });
+document.getElementById('progressBar').addEventListener('click',(e)=>{
+  stopPlay();
+  const rect=e.currentTarget.getBoundingClientRect();
+  const pct=(e.clientX-rect.left)/rect.width;
+  const target=Math.round(pct*(state.steps.length-1));
+  state.idx=Math.max(-1, Math.min(state.steps.length-1, target));
+  render();
+});
+document.getElementById('kSlider').addEventListener('input',(e)=>{
+  const k = parseInt(e.target.value,10);
+  document.getElementById('kValue').textContent = k;
+  stopPlay(); init(k);
+});
+
+init(state.k);
+</script>
+</body>
+</html>
